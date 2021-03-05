@@ -1,9 +1,12 @@
 import bpy
-import os, tempfile
+import os
+import math
+import tempfile
+import numpy as np
 from PIL import Image
 
 
-def init(frames, resolution):
+def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
     scene = bpy.context.scene
 
     # output settings
@@ -11,12 +14,24 @@ def init(frames, resolution):
     scene.render.resolution_x, scene.render.resolution_y = resolution
     scene.render.film_transparent = True
 
-    # default camera position
-    scene.camera.location = 0, 0, 4
+    # canonical scene
+    scene.camera.location = 0, 0, 0
     scene.camera.rotation_euler = 0, 0, 0
+    scene.objects["Light"].location = 0, 0, 0
+
+    # environment lighting
+    bpy.context.scene.world.use_nodes = False
+    bpy.context.scene.world.color = env_light
 
     # remove default cube
     bpy.ops.object.delete()
+
+    # create material for texture
+    mat = bpy.data.materials.new("Texture")
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    tex = nodes.new("ShaderNodeTexImage")
+    mat.node_tree.links.new(tex.outputs[0], nodes["Principled BSDF"].inputs[0])
 
     # configure compositor nodes
     # bg image -> scale to fit -> overlay blurred object
@@ -39,17 +54,31 @@ def init(frames, resolution):
     # motion blur over all frames for FMO
     scene.eevee.motion_blur_position = "START"
     scene.eevee.motion_blur_shutter = scene.frame_end - 1
-    scene.eevee.motion_blur_steps = 40
+    scene.eevee.motion_blur_steps = mblur
 
 
-def render(path, img, obj, loc_from, loc_to, rot_from, rot_to):
+def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
     scene = bpy.context.scene
 
-    # load img and obj
-    img = bpy.data.images.load(os.path.abspath(img))
-    scene.node_tree.nodes["Image"].image = img
+    # load object
     bpy.ops.import_scene.obj(filepath=obj)
     obj = bpy.context.selected_objects[0]
+
+    # load background image
+    img = bpy.data.images.load(os.path.abspath(img))
+    scene.node_tree.nodes["Image"].image = img
+
+    # load texture
+    if tex:
+        tex = bpy.data.images.load(os.path.abspath(tex))
+        mat = bpy.data.materials["Texture"]
+        mat.node_tree.nodes["Image Texture"].image = tex
+        obj.data.materials.clear()
+        obj.data.materials.append(mat)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.uv.cube_project(scale_to_bounds=True)
+        bpy.ops.object.editmode_toggle()
 
     # starting position
     obj.location = loc_from
@@ -68,7 +97,7 @@ def render(path, img, obj, loc_from, loc_to, rot_from, rot_to):
         for k in f.keyframe_points:
             k.interpolation = "LINEAR"
 
-    # render frames to temp dir
+    # render to temp dir then pack to webp
     with tempfile.TemporaryDirectory() as tmp:
         scene.render.filepath = os.path.join(tmp, "img")
         scene.node_tree.nodes["File Output"].base_path = tmp
@@ -86,7 +115,8 @@ def render(path, img, obj, loc_from, loc_to, rot_from, rot_to):
         # pack to webp
         fs = [os.path.join(tmp, f) for f in os.listdir(tmp)]
         Image.open(fs[1]).save(
-            path + ".webp",
+            output,
+            format="webp",
             save_all=True,
             append_images=(Image.open(f) for f in fs[:1] + fs[2:]),
             method=4,
@@ -97,33 +127,20 @@ def render(path, img, obj, loc_from, loc_to, rot_from, rot_to):
     # clean up
     bpy.ops.object.delete()
     bpy.data.images.remove(img)
+    if tex:
+        bpy.data.images.remove(tex)
 
 
-import time
+def calc_frustum(max_radius=0.5, dead_zone=0.05, focal_length=50, sensor_size=36):
+    tan = sensor_size / focal_length / 2
+    alpha = math.atan(tan) * (1 - dead_zone)
+    offset = max_radius / math.sin(alpha)
+    return math.tan(alpha), offset
 
 
-init(30, (320, 240))
-
-st = time.time()
-
-render(
-    "C:/tmp/a",
-    "data/vot/seq/shaking/00000001.jpg",
-    "data/ShapeNetCore.v2/03261776/2b28e2a5080101d245af43a64155c221/models/model_normalized.obj",
-    (-0.25, -0.25, -0.25),
-    (0.25, 0.25, 0.25),
-    (0, 0, 0),
-    (1, 1, 1),
-)
-
-render(
-    "C:/tmp/b",
-    "data/vot/seq/crossing/00000001.jpg",
-    "data/ShapeNetCore.v2/02942699/3d18881b51009a7a8ff43d2d38ae15e1/models/model_normalized.obj",
-    (-0.25, -0.25, -0.25),
-    (0.25, 0.25, 0.25),
-    (0, 0, 0),
-    (1, 1, 1),
-)
-
-print((time.time() - st) / 2)
+def gen_frustum_point(z_range, res, tan, offset):
+    x, y, z = np.random.rand(3)
+    z = z_range[0] + (z_range[1] - z_range[0]) * z
+    x = (x * 2 - 1) * tan * (z + offset)
+    y = (y * 2 - 1) * tan * (z * res[1] / res[0] + offset)
+    return x, y, z
