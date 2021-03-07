@@ -17,7 +17,7 @@ texs = glob.glob("data/textures/textures_train/*.jpg")
 output = "data/generated/random"
 
 n_images = 20
-resolution = 360, 240
+resolution = 320, 240
 n_frames = 24
 
 z_range = -8, -3
