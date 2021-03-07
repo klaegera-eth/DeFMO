@@ -65,12 +65,12 @@ def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
     obj = bpy.context.selected_objects[0]
 
     # load background image
-    img = bpy.data.images.load(os.path.abspath(img))
+    img = load_image(img)
     scene.node_tree.nodes["Image"].image = img
 
     # load texture
     if tex:
-        tex = bpy.data.images.load(os.path.abspath(tex))
+        tex = load_image(tex)
         mat = bpy.data.materials["Texture"]
         mat.node_tree.nodes["Image Texture"].image = tex
         obj.data.materials.clear()
@@ -129,6 +129,17 @@ def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
     bpy.data.images.remove(img)
     if tex:
         bpy.data.images.remove(tex)
+
+
+def load_image(fp):
+    try:
+        return bpy.data.images.load(os.path.abspath(fp))
+    except:
+        # try to load image with PIL
+        pil = fp if isinstance(fp, Image.Image) else Image.open(fp)
+        img = bpy.data.images.new("img", pil.width, pil.height)
+        img.pixels[:] = np.asarray(pil.convert("RGBA")).ravel() / 255
+        return img
 
 
 def calc_frustum(max_radius=0.5, dead_zone=0.05, focal_length=50, sensor_size=36):
