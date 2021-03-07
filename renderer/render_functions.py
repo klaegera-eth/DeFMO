@@ -4,6 +4,10 @@ import math
 import tempfile
 import numpy as np
 from PIL import Image
+from zipfile import ZipFile
+from contextlib import contextmanager
+import random
+import fnmatch
 
 
 def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
@@ -155,3 +159,23 @@ def gen_frustum_point(z_range, res, tan, offset):
     x = (x * 2 - 1) * tan * (z + offset)
     y = (y * 2 - 1) * tan * (z * res[1] / res[0] + offset)
     return x, y, z
+
+
+class ZipLoader:
+    def __init__(self, zip, filter="*[!/]"):
+        self.zip = ZipFile(zip)
+        self.names = fnmatch.filter(self.zip.namelist(), filter)
+
+    @contextmanager
+    def get(self, name):
+        _, ext = os.path.splitext(name)
+        fd, path = tempfile.mkstemp(suffix=ext)
+        with os.fdopen(fd, "wb") as f:
+            f.write(self.zip.read(name))
+        try:
+            yield path
+        finally:
+            os.remove(path)
+
+    def get_random(self):
+        return self.get(random.choice(self.names))
