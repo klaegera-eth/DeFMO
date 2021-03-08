@@ -117,7 +117,7 @@ def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
         bpy.ops.render.render(write_still=True)
 
         # pack to webp
-        fs = [os.path.join(tmp, f) for f in os.listdir(tmp)]
+        fs = sorted([os.path.join(tmp, f) for f in os.listdir(tmp)])
         Image.open(fs[1]).save(
             output,
             format="webp",
