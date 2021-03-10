@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 from zipfile import ZipFile
 from contextlib import contextmanager
+from collections import defaultdict
 import random
 import fnmatch
 
@@ -162,9 +163,19 @@ def gen_frustum_point(z_range, res, tan, offset):
 
 
 class ZipLoader:
-    def __init__(self, zip, filter="*[!/]"):
+    def __init__(self, zip, filter="*[!/]", balance_subdirs=False):
         self.zip = ZipFile(zip)
         self.names = fnmatch.filter(self.zip.namelist(), filter)
+        self.tree = None
+        if balance_subdirs:
+            # create directory tree of zip contents
+            dict_tree = lambda: defaultdict(dict_tree)
+            self.tree = dict_tree()
+            for name in self.names:
+                node = self.tree
+                for d in name.split("/")[:-1]:
+                    node = node[d]
+                node[name] = None
 
     @contextmanager
     def get(self, name):
@@ -178,4 +189,13 @@ class ZipLoader:
             os.remove(path)
 
     def get_random(self):
+        if self.tree:
+            # randomly sample at every level of directory tree
+            node = self.tree
+            while True:
+                name = random.choice(list(node.keys()))
+                node = node[name]
+                if not node:
+                    # leaf node
+                    return self.get(name)
         return self.get(random.choice(self.names))
