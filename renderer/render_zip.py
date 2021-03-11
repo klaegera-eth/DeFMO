@@ -18,17 +18,21 @@ texs = rf.ZipLoader("data/textures.zip", "*/textures_train/*.jpg")
 output = "data/generated"
 
 n_sequences = 5
+resolution = 320, 240
+
 n_frames = 24
+blurs = [(0, 10), (-11, -1)]
 
 z_range = -8, -3
-max_rot = math.pi / 6
+delta_z = 1
+delta_xy = 1, 3
+max_rot = math.pi / 8
 
 
 rf.init(n_frames, resolution)
-fr_tan, fr_offset = rf.calc_frustum()
+frustum = rf.Frustum(z_range, resolution)
 
 st = time.time()
-
 with zipfile.ZipFile(os.path.join(output, str(uuid.uuid4()) + ".zip"), "w") as zip:
     for i in range(n_sequences):
         rot_start = np.random.rand(3) * 2 * np.pi
@@ -37,11 +41,10 @@ with zipfile.ZipFile(os.path.join(output, str(uuid.uuid4()) + ".zip"), "w") as z
                 outbuf,
                 obj,
                 tex,
-                rf.gen_frustum_point(z_range, resolution, fr_tan, fr_offset),
-                rf.gen_frustum_point(z_range, resolution, fr_tan, fr_offset),
+                *frustum.gen_point_pair(delta_z, delta_xy),
                 rot_start,
                 rot_start + max_rot * (np.random.rand(3) * 2 - 1),
-                [(0, -1), (0, 10), (-11, -1)],
+                blurs,
             )
             zip.writestr(f"{i:04}.webp", outbuf.getvalue())
 
