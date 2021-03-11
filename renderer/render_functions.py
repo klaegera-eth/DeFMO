@@ -15,7 +15,8 @@ def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
     scene = bpy.context.scene
 
     # output settings
-    scene.frame_end = frames
+    scene.frame_start = scene.frame_current = 0
+    scene.frame_end = frames - 1
     scene.render.resolution_x, scene.render.resolution_y = resolution
     scene.render.film_transparent = True
 
@@ -38,40 +39,17 @@ def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
     tex = nodes.new("ShaderNodeTexImage")
     mat.node_tree.links.new(tex.outputs[0], nodes["Principled BSDF"].inputs[0])
 
-    # configure compositor nodes
-    # bg image -> scale to fit -> overlay blurred object
-    scene.use_nodes = True
-    nodes = scene.node_tree.nodes
-    img = nodes.new("CompositorNodeImage")
-    scale = nodes.new("CompositorNodeScale")
-    scale.frame_method = "CROP"
-    scale.space = "RENDER_SIZE"
-    alpha = nodes.new("CompositorNodeAlphaOver")
-    fout = nodes.new("CompositorNodeOutputFile")
-
-    links = scene.node_tree.links
-    links.new(img.outputs[0], scale.inputs[0])
-    links.new(scale.outputs[0], alpha.inputs[1])
-    links.new(scale.outputs[0], fout.inputs[0])
-    links.new(nodes["Render Layers"].outputs[0], alpha.inputs[2])
-    links.new(alpha.outputs[0], nodes["Composite"].inputs[0])
-
-    # motion blur over all frames for FMO
+    # motion blur parameters
     scene.eevee.motion_blur_position = "START"
-    scene.eevee.motion_blur_shutter = scene.frame_end - 1
     scene.eevee.motion_blur_steps = mblur
 
 
-def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
+def render(output, obj, tex, loc_from, loc_to, rot_from, rot_to, blurs=[(0, -1)]):
     scene = bpy.context.scene
 
     # load object
     bpy.ops.import_scene.obj(filepath=obj)
     obj = bpy.context.selected_objects[0]
-
-    # load background image
-    img = load_image(img)
-    scene.node_tree.nodes["Image"].image = img
 
     # load texture
     if tex:
@@ -104,34 +82,37 @@ def render(output, obj, img, tex, loc_from, loc_to, rot_from, rot_to):
 
     # render to temp dir then pack to webp
     with tempfile.TemporaryDirectory() as tmp:
-        scene.render.filepath = os.path.join(tmp, "img")
-        scene.node_tree.nodes["File Output"].base_path = tmp
 
-        # render frames (no bg, no blur)
-        scene.use_nodes = False
+        # render frames
         scene.eevee.use_motion_blur = False
+        scene.render.filepath = os.path.join(tmp, "frame")
         bpy.ops.render.render(animation=True)
 
-        # render FMO
-        scene.use_nodes = True
+        # render blurs
         scene.eevee.use_motion_blur = True
-        bpy.ops.render.render(write_still=True)
+        for i, blur in enumerate(blurs):
+            blur_start, blur_end = [b % (scene.frame_end + 1) for b in blur]
+            scene.frame_current = blur_start
+            scene.eevee.motion_blur_shutter = blur_end - blur_start
+            scene.render.filepath = os.path.join(tmp, f"blur{i:04}")
+            bpy.ops.render.render(write_still=True)
+        scene.frame_current = scene.frame_start
 
         # pack to webp
         fs = sorted([os.path.join(tmp, f) for f in os.listdir(tmp)])
-        Image.open(fs[1]).save(
+        Image.open(fs[0]).save(
             output,
             format="webp",
             save_all=True,
-            append_images=(Image.open(f) for f in fs[:1] + fs[2:]),
+            append_images=(Image.open(f) for f in fs[1:]),
             method=4,
             quality=75,
+            duration=[1000] * len(blurs) + [33] * (scene.frame_end + 1),
             minimize_size=True,
         )
 
     # clean up
     bpy.ops.object.delete()
-    bpy.data.images.remove(img)
     if tex:
         bpy.data.images.remove(tex)
 
