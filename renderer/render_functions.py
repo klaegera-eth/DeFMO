@@ -11,7 +11,7 @@ import random
 import fnmatch
 
 
-def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
+def init(frames, resolution, mblur=40, env_light=(0.5, 0.5, 0.5)):
     scene = bpy.context.scene
 
     # output settings
