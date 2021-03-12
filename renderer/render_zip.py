@@ -31,6 +31,7 @@ max_rot = math.pi / 8
 
 rf.init(n_frames, resolution)
 frustum = rf.Frustum(z_range, resolution)
+os.makedirs(output, exist_ok=True)
 
 st = time.time()
 with zipfile.ZipFile(os.path.join(output, str(uuid.uuid4()) + ".zip"), "w") as zip:
