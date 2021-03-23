@@ -1,17 +1,31 @@
-import bpy
 import os
-import math
-import tempfile
-import numpy as np
-from PIL import Image
-from zipfile import ZipFile
-from contextlib import contextmanager
-from collections import defaultdict
+import sys
 import random
-import fnmatch
+import tempfile
+from PIL import Image
+
+
+def ensure_blender(blender=None):
+    try:
+        global bpy
+        import bpy
+
+        return sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+    except ImportError:
+        if blender:
+            import subprocess
+
+            print("Restarting with Blender...")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            subprocess.run([blender, "--background", "--python", sys.argv[0], "--"] + sys.argv[1:])
+            sys.exit()
+        else:
+            sys.exit("Failed to import bpy. Please run with Blender.")
 
 
 def init(frames, resolution, mblur=40, env_light=(0.5, 0.5, 0.5)):
+    ensure_blender()
     scene = bpy.context.scene
 
     # output settings
@@ -44,7 +58,8 @@ def init(frames, resolution, mblur=40, env_light=(0.5, 0.5, 0.5)):
     scene.eevee.motion_blur_steps = mblur
 
 
-def render(output, obj, tex, loc_from, loc_to, rot_from, rot_to, blurs=[(0, -1)]):
+def render(output, obj, tex, loc, rot, blurs=[(0, -1)]):
+    ensure_blender()
     scene = bpy.context.scene
 
     # load object
@@ -53,7 +68,7 @@ def render(output, obj, tex, loc_from, loc_to, rot_from, rot_to, blurs=[(0, -1)]
 
     # load texture
     if tex:
-        tex = load_image(tex)
+        tex = bpy.data.images.load(os.path.abspath(tex))
         mat = bpy.data.materials["Texture"]
         mat.node_tree.nodes["Image Texture"].image = tex
         obj.data.materials.clear()
@@ -64,14 +79,14 @@ def render(output, obj, tex, loc_from, loc_to, rot_from, rot_to, blurs=[(0, -1)]
         bpy.ops.object.editmode_toggle()
 
     # starting position
-    obj.location = loc_from
-    obj.rotation_euler = rot_from
+    obj.location = loc[0]
+    obj.rotation_euler = rot[0]
     obj.keyframe_insert("location")
     obj.keyframe_insert("rotation_euler")
 
     # final position
-    obj.location = loc_to
-    obj.rotation_euler = rot_to
+    obj.location = loc[1]
+    obj.rotation_euler = rot[1]
     obj.keyframe_insert("location", frame=scene.frame_end)
     obj.keyframe_insert("rotation_euler", frame=scene.frame_end)
 
@@ -117,23 +132,12 @@ def render(output, obj, tex, loc_from, loc_to, rot_from, rot_to, blurs=[(0, -1)]
         bpy.data.images.remove(tex)
 
 
-def load_image(fp):
-    try:
-        return bpy.data.images.load(os.path.abspath(fp))
-    except:
-        # try to load image with PIL
-        pil = fp if isinstance(fp, Image.Image) else Image.open(fp)
-        img = bpy.data.images.new("img", pil.width, pil.height)
-        img.pixels[:] = np.asarray(pil.convert("RGBA")).ravel() / 255
-        return img
-
-
 class Frustum:
     def __init__(
         self, z_range, resolution, max_radius=0.6, dead_zone=0.05, focal_length=50, sensor_size=36
     ):
         self.tan = (1 - dead_zone) * sensor_size / focal_length / 2
-        self.offset = max_radius / self.tan * math.sqrt(self.tan ** 2 + 1)
+        self.offset = max_radius / self.tan * (self.tan ** 2 + 1) ** 0.5
         self.ratio = resolution[1] / resolution[0]
         self.z_range = z_range
 
@@ -163,42 +167,3 @@ class Frustum:
                 continue
             return a, b
         raise ValueError("Failed to generate point pair. Check input parameters.")
-
-
-class ZipLoader:
-    def __init__(self, zip, filter="*[!/]", balance_subdirs=False):
-        self.zip = ZipFile(zip)
-        self.names = fnmatch.filter(self.zip.namelist(), filter)
-        self.tree = None
-        if balance_subdirs:
-            # create directory tree of zip contents
-            dict_tree = lambda: defaultdict(dict_tree)
-            self.tree = dict_tree()
-            for name in self.names:
-                node = self.tree
-                for d in name.split("/")[:-1]:
-                    node = node[d]
-                node[name] = None
-
-    @contextmanager
-    def get(self, name):
-        _, ext = os.path.splitext(name)
-        fd, path = tempfile.mkstemp(suffix=ext)
-        with os.fdopen(fd, "wb") as f:
-            f.write(self.zip.read(name))
-        try:
-            yield path
-        finally:
-            os.remove(path)
-
-    def get_random(self):
-        if self.tree:
-            # randomly sample at every level of directory tree
-            node = self.tree
-            while True:
-                name = random.choice(list(node.keys()))
-                node = node[name]
-                if not node:
-                    # leaf node
-                    return self.get(name)
-        return self.get(random.choice(self.names))
