@@ -8,11 +8,20 @@ from contextlib import contextmanager
 
 
 class ZipLoader:
-    def __init__(self, zip, filter="*[!/]"):
-        print("Loading", zip)
+    def __init__(self, zip, filter="*[!/]", balance_subdirs=False):
         self.zip = ZipFile(zip)
         self.names = fnmatch.filter(self.zip.namelist(), filter)
         self.dirtree = None
+
+        if balance_subdirs:
+            # create directory tree of zip contents
+            dict_tree = lambda: defaultdict(dict_tree)
+            self.dirtree = dict_tree()
+            for name in self.names:
+                node = self.dirtree
+                for d in name.split("/")[:-1]:
+                    node = node[d]
+                node[name] = None
 
     @contextmanager
     def as_tempfile(self, name):
@@ -25,17 +34,8 @@ class ZipLoader:
         finally:
             os.remove(path)
 
-    def get_random(self, balance_subdirs=False):
-        if balance_subdirs:
-            if not self.dirtree:
-                # create directory tree of zip contents
-                dict_tree = lambda: defaultdict(dict_tree)
-                self.dirtree = dict_tree()
-                for name in self.names:
-                    node = self.dirtree
-                    for d in name.split("/")[:-1]:
-                        node = node[d]
-                    node[name] = None
+    def get_random(self):
+        if self.dirtree:
             # randomly sample at every level of directory tree
             node = self.dirtree
             while True:
@@ -45,3 +45,15 @@ class ZipLoader:
                     # leaf node
                     return name
         return random.choice(self.names)
+
+    def get_random_seq(self, length):
+        for _ in range(10000):
+            seed = self.get_random()
+            node = self.dirtree
+            for d in seed.split("/")[:-1]:
+                node = node[d]
+            names = sorted(node.keys())
+            if len(names) >= length:
+                start = random.randint(0, len(names) - length)
+                return names[start : start + length]
+        raise ValueError(f"Failed to get random sequence of length {length}.")

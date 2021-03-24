@@ -18,7 +18,7 @@ args = render.ensure_blender(r"C:\Program Files\Blender Foundation\Blender 2.91\
 n_sequences = int(args[0]) if len(args) else 5
 out_dir = args[1] if len(args) > 1 else "."
 
-objs = utils.ZipLoader("data/ShapeNetCore.v2.zip", "*.obj")
+objs = utils.ZipLoader("data/ShapeNetCore.v2.zip", "*.obj", balance_subdirs=True)
 texs = utils.ZipLoader("data/textures.zip", "*/textures_train/*.jpg")
 
 p = dict(
@@ -41,7 +41,7 @@ filename = time.strftime(f"fmo_{len(p['blurs'])}_{p['n_frames']}_%y%m%d%H%M%S.zi
 with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
     zip.comment = json.dumps(p).encode()
     for i in range(n_sequences):
-        obj = objs.get_random(balance_subdirs=True)
+        obj = objs.get_random()
         tex = texs.get_random()
         loc = frustum.gen_point_pair(p["delta_z"], p["delta_xy"])
         rot_start = np.random.rand(3) * 2 * np.pi
