@@ -53,7 +53,4 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
         zip.getinfo(name).comment = json.dumps({"obj": obj, "tex": tex}).encode()
 
 duration = datetime.now() - time
-print(
-    f"Rendered {n_sequences} sequences in {duration}, "
-    f"{duration.total_seconds() / n_sequences:.2f}s per sequence"
-)
+print(f"Rendered {n_sequences} sequences in {duration}, {duration.total_seconds() / n_sequences:.2f}s per sequence")

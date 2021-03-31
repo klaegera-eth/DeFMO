@@ -133,9 +133,7 @@ def render(output, obj, tex, loc, rot, blurs=[(0, -1)]):
 
 
 class Frustum:
-    def __init__(
-        self, z_range, resolution, max_radius=0.6, dead_zone=0.05, focal_length=50, sensor_size=36
-    ):
+    def __init__(self, z_range, resolution, max_radius=0.6, dead_zone=0.05, focal_length=50, sensor_size=36):
         self.tan = (1 - dead_zone) * sensor_size / focal_length / 2
         self.offset = max_radius / self.tan * (self.tan ** 2 + 1) ** 0.5
         self.ratio = resolution[1] / resolution[0]
