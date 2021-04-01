@@ -53,6 +53,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
             with zip.open(name, "w") as out:
                 render.render(out, objf, texf, loc, (rot_start, rot_end), p["blurs"])
         zip.getinfo(name).comment = json.dumps({"obj": obj, "tex": tex}).encode()
+        if os.path.exists(os.path.join(out_dir, "stop")):
+            print("Stop file found")
+            break
 
 duration = datetime.now() - time
 print(f"Rendered {n_sequences} sequences in {duration}, {duration.total_seconds() / n_sequences:.2f}s per sequence")
