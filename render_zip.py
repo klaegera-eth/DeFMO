@@ -30,13 +30,13 @@ texs = utils.ZipLoader("data/textures.zip", "*/textures_train/*.jpg")
 p = dict(
     resolution=(320, 240),
     n_frames=24,
-    blurs=[(0, 10), (-11, -1)],
+    blurs=[(0, -1), (0, 10), (-11, -1)],
     z_range=(-8, -3),
     delta_z=1,
-    delta_xy=(1, 3),
+    delta_xy=(0.5, 2),
     max_rot=np.pi / 8,
     env_light=(1, 1, 1),
-    min_alpha=255 / 3,
+    min_alpha=255 / 4,
 )
 
 
