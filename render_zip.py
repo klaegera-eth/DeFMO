@@ -79,8 +79,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
             break
 
         # print progress (without microseconds)
-        elapsed = (datetime.now() - time) // 1000000 * 1000000
+        elapsed = datetime.now() - time
         rate = elapsed / (seq_n + 1)
+        elapsed = elapsed // 1000000 * 1000000
         estimate = rate * n_sequences // 1000000 * 1000000
         print(
             f"{seq_n + 1:>{len(str(n_sequences))}} / {n_sequences} "
