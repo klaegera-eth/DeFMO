@@ -1,10 +1,18 @@
 import os
+import sys
 import random
 import fnmatch
 import tempfile
 from zipfile import ZipFile
 from collections import defaultdict
 from contextlib import contextmanager
+
+
+def print_stderr(*args, **kwargs):
+    if "file" not in kwargs:
+        kwargs["file"] = sys.stderr
+    print(*args, **kwargs)
+    sys.stderr.flush()
 
 
 class ZipLoader:
