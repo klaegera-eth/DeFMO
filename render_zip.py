@@ -78,9 +78,14 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
 
             break
 
-        # print progress
-        duration = datetime.now() - time
-        print(f"{seq_n + 1}/{n_sequences} - {duration} = {duration.total_seconds() / (seq_n + 1):.2f}s/seq")
+        # print progress (without microseconds)
+        elapsed = (datetime.now() - time) // 1000000 * 1000000
+        rate = elapsed / (seq_n + 1)
+        estimate = rate * n_sequences // 1000000 * 1000000
+        print(
+            f"{seq_n + 1:>{len(str(n_sequences))}} / {n_sequences} "
+            f"@ {rate.total_seconds():.2f} s/seq = {elapsed} / {estimate}"
+        )
 
         # check if "stop" file exists to abort rendering early
         if os.path.exists(os.path.join(out_dir, "stop")):
