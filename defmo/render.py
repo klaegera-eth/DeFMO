@@ -40,17 +40,17 @@ def init(frames, resolution, mblur=40, env_light=(0.5, 0.5, 0.5)):
     scene.render.resolution_x, scene.render.resolution_y = resolution
     scene.render.film_transparent = True
 
-    # canonical scene
+    # canonical camera
     scene.camera.location = 0, 0, 0
     scene.camera.rotation_euler = 0, 0, 0
-    scene.objects["Light"].location = 0, 0, 0
 
     # environment lighting
     bpy.context.scene.world.use_nodes = False
     bpy.context.scene.world.color = env_light
 
-    # remove default cube
+    # remove default objects
     bpy.ops.object.delete()
+    bpy.data.objects.remove(scene.objects["Light"])
 
     # create material for texture
     mat = bpy.data.materials.new("Texture")
