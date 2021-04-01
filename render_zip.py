@@ -11,9 +11,11 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from defmo import render
 from defmo import utils
 
+# print to stderr when suppressing Blender output
+from defmo.utils import print_stderr as print
 
 # restart with Blender if necessary
-args = render.ensure_blender(r"C:\Program Files\Blender Foundation\Blender 2.91\blender.exe")
+args = render.ensure_blender(r"C:\Program Files\Blender Foundation\Blender 2.91\blender.exe", suppress_output=True)
 
 n_sequences = int(args[0]) if len(args) else 5
 out_dir = args[1] if len(args) > 1 else "."

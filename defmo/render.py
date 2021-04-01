@@ -5,7 +5,7 @@ import tempfile
 from PIL import Image
 
 
-def ensure_blender(blender=None):
+def ensure_blender(blender=None, suppress_output=False):
     try:
         global bpy
         import bpy
@@ -18,7 +18,13 @@ def ensure_blender(blender=None):
             print("Restarting with Blender...")
             sys.stdout.flush()
             sys.stderr.flush()
-            subprocess.run([blender, "--background", "--python", sys.argv[0], "--"] + sys.argv[1:])
+            proc = subprocess.Popen(
+                [blender, "--background", "--python", sys.argv[0], "--"] + sys.argv[1:],
+                stdout=subprocess.DEVNULL if suppress_output else None,
+                stderr=subprocess.PIPE,
+            )
+            for line in proc.stderr:
+                sys.stdout.write(line.decode())
             sys.exit()
         else:
             sys.exit("Failed to import bpy. Please run with Blender.")
