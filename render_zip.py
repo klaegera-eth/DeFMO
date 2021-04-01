@@ -51,6 +51,7 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
     # write parameters to zip
     zip.comment = json.dumps(p).encode()
 
+    n_discarded = 0
     for seq_n in range(n_sequences):
         while True:
 
@@ -69,7 +70,7 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
                 if p["min_alpha"]:
                     alpha = np.array(Image.open(out))[:, :, 3]
                     if np.max(alpha) < p["min_alpha"]:
-                        print("Alpha too low, restarting...")
+                        n_discarded += 1
                         continue
 
                 # save render to zip
@@ -86,7 +87,8 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
         estimate = rate * n_sequences // 1000000 * 1000000
         print(
             f"{seq_n + 1:>{len(str(n_sequences))}} / {n_sequences} "
-            f"@ {rate.total_seconds():.2f} s/seq = {elapsed} / {estimate}"
+            f"@ {rate.total_seconds():.2f} s/seq = {elapsed} / {estimate} "
+            f"({n_discarded} discarded)"
         )
 
         # check if "stop" file exists to abort rendering early
