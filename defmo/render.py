@@ -30,7 +30,7 @@ def ensure_blender(blender=None, suppress_output=False):
             sys.exit("Failed to import bpy. Please run with Blender.")
 
 
-def init(frames, resolution, mblur=40, env_light=(0.5, 0.5, 0.5)):
+def init(frames, resolution, mblur=40, env_light=(1, 1, 1)):
     ensure_blender()
     scene = bpy.context.scene
 

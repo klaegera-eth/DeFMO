@@ -35,11 +35,12 @@ p = dict(
     delta_z=1,
     delta_xy=(1, 3),
     max_rot=np.pi / 8,
+    env_light=(1, 1, 1),
     min_alpha=255 / 3,
 )
 
 
-render.init(p["n_frames"], p["resolution"])
+render.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
 frustum = render.Frustum(p["z_range"], p["resolution"])
 
 time = datetime.now()
