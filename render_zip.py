@@ -44,7 +44,7 @@ render.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
 frustum = render.Frustum(p["z_range"], p["resolution"])
 
 time = datetime.now()
-filename = time.strftime(f"fmo_{len(p['blurs'])}_{p['n_frames']}_%y%m%d%H%M%S.zip")
+filename = time.strftime(f"fmo_{len(p['blurs'])}_{p['n_frames']}_%y%m%d%H%M%S_{os.getpid()}.zip")
 
 with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
 
