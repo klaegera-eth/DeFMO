@@ -10,8 +10,7 @@ from datetime import datetime
 # enable importing from current dir when running with Blender
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from defmo import render
-from defmo import utils
+from defmo import render, utils
 
 # print to stderr when suppressing Blender output
 from defmo.utils import print_stderr as print
@@ -31,13 +30,24 @@ p = dict(
     resolution=(320, 240),
     n_frames=24,
     blurs=[(0, -1), (0, 10), (-11, -1)],
-    z_range=(-8, -3),
+    z_range=(-6, -3),
     delta_z=1,
     delta_xy=(0.5, 2),
     max_rot=np.pi / 8,
     env_light=(1, 1, 1),
-    min_alpha=255 / 4,
+    alpha=[(0.04, 1), (0.02, 255 / 10), (0.01, 255 / 4)],
 )
+
+# check if output should be discarded
+def check_discard(out):
+
+    # ensure that enough area has sufficient opacity
+    if p["alpha"]:
+        alpha = np.array(Image.open(out))[:, :, 3]
+        for area, opacity in p["alpha"]:
+            if (alpha >= opacity).sum() / alpha.size < area:
+                # too small or too faint
+                return True
 
 
 render.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
@@ -66,12 +76,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
                 with objs.as_tempfile(obj) as objf, texs.as_tempfile(tex) as texf:
                     render.render(out, objf, texf, loc, (rot_start, rot_end), p["blurs"])
 
-                # check if highest alpha value is at least min_alpha
-                if p["min_alpha"]:
-                    alpha = np.array(Image.open(out))[:, :, 3]
-                    if np.max(alpha) < p["min_alpha"]:
-                        n_discarded += 1
-                        continue
+                if check_discard(out):
+                    n_discarded += 1
+                    continue
 
                 # save render to zip
                 name = f"{seq_n:04}.webp"
