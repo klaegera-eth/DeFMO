@@ -33,11 +33,16 @@ class ZipDataset(torch.utils.data.Dataset):
 
         imgs, bgs = self._select_bgs(blurs)
 
+        for collection in [imgs, blurs, frames, bgs]:
+            for i, x in enumerate(collection):
+                collection[i] = to_tensor(x)
+
         return {
-            "imgs": torch.stack([to_tensor(img) for img in imgs]),
-            "blurs": torch.stack([to_tensor(blur) for blur in blurs]),
-            "frames": torch.stack([to_tensor(frame) for frame in frames]),
-            "bgs": torch.stack([to_tensor(bg) for bg in bgs]),
+            "imgs": torch.stack(imgs),
+            "imgs_short_cat": torch.cat(imgs[1:]),
+            "blurs": torch.stack(blurs),
+            "frames": torch.stack(frames),
+            "bgs": torch.stack(bgs),
         }
 
     def _select_bgs(self, blurs):
@@ -59,7 +64,7 @@ class ZipDataset(torch.utils.data.Dataset):
 
         bgs = [self._bg_loader.load_image(bg) for bg in best_bgs[1:]]
         imgbgs = [best_imgbg_0] + [self._add_bg(*ib) for ib in zip(blurs[1:], bgs)]
-        return tuple(zip(*imgbgs))
+        return [list(l) for l in zip(*imgbgs)]
 
     def _add_bg(_, img, bg):
         bg = bg.resize(img.size).convert(img.mode)
