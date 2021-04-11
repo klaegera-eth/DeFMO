@@ -1,30 +1,64 @@
 import json
 import torch
 import zipfile
+import numpy as np
 from PIL import Image, ImageSequence
 from torchvision.transforms.functional import to_tensor
 
 
 class ZipDataset(torch.utils.data.Dataset):
-    def __init__(self, zip, background_loader):
-        self.zip = zipfile.ZipFile(zip)
-        self.params = json.loads(self.zip.comment)
-        self.bg_loader = background_loader
+    max_contrast_tries = 10
+
+    def __init__(self, zip, background_loader, min_contrast=255 / 10):
+        self._zip = zipfile.ZipFile(zip)
+        self.params = json.loads(self._zip.comment)
+        self._bg_loader = background_loader
+        self.min_contrast = min_contrast
 
     def __len__(self):
-        return len(self.zip.filelist)
+        return len(self._zip.filelist)
 
     def __getitem__(self, index):
-        img = Image.open(self.zip.open(self.zip.filelist[index]))
-        frames = ImageSequence.all_frames(img)
-        n_blurs = len(self.params["blurs"])
-        blurs, frames = frames[:n_blurs], frames[n_blurs:]
-        bgs = self.bg_loader.get_random_seq(n_blurs)
-        for i, (blur, bg) in enumerate(zip(blurs, bgs)):
-            bg = Image.open(self.bg_loader.zip.open(bg))
-            bg = bg.resize(blur.size).convert(blur.mode)
-            blurs[i] = Image.alpha_composite(bg, blur).convert("RGB")
+        with self._zip.open(self._zip.filelist[index]) as f:
+            seq = ImageSequence.all_frames(Image.open(f))
+            n_blurs = len(self.params["blurs"])
+            blurs, frames = seq[:n_blurs], seq[n_blurs:]
+
+        imgs, bgs = self._select_bgs(blurs)
+
         return {
-            "blurs": torch.cat([to_tensor(blur) for blur in blurs]),
+            "imgs": torch.stack([to_tensor(img) for img in imgs]),
+            "blurs": torch.stack([to_tensor(blur) for blur in blurs]),
             "frames": torch.stack([to_tensor(frame) for frame in frames]),
+            "bgs": torch.stack([to_tensor(bg) for bg in bgs]),
         }
+
+    def _select_bgs(self, blurs):
+        # find bgs with min_contrast (only first blur checked)
+        # use best out of max_contrast_tries if none found
+        best_contrast = -1
+        for _ in range(self.max_contrast_tries):
+            bgs = self._bg_loader.get_random_seq(len(blurs))
+            bg_0 = self._bg_loader.load_image(bgs[0])
+            imgbg_0 = self._add_bg(blurs[0], bg_0)
+            alpha_mask = np.array(blurs[0])[:, :, 3] > 0
+            contrast = self._contrast(*imgbg_0, mask=alpha_mask)
+            if contrast > best_contrast:
+                best_contrast = contrast
+                best_imgbg_0 = imgbg_0
+                best_bgs = bgs
+            if contrast >= self.min_contrast:
+                break
+
+        bgs = [self._bg_loader.load_image(bg) for bg in best_bgs[1:]]
+        imgbgs = [best_imgbg_0] + [self._add_bg(*ib) for ib in zip(blurs[1:], bgs)]
+        return tuple(zip(*imgbgs))
+
+    def _add_bg(_, img, bg):
+        bg = bg.resize(img.size).convert(img.mode)
+        img = Image.alpha_composite(bg, img).convert("RGB")
+        return img, bg.convert(img.mode)
+
+    def _contrast(_, img1, img2, mask=None):
+        diff = abs(np.array(img1, dtype=int) - img2)
+        return np.mean(diff[mask] if mask is not None else diff)
