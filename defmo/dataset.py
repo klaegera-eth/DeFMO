@@ -10,6 +10,10 @@ class ZipDataset(torch.utils.data.Dataset):
     max_contrast_tries = 10
 
     def __init__(self, zip, background_loader, item_range=(0, 1), min_contrast=255 / 10):
+        # save args for pickling
+        self._args = locals()
+        del self._args["self"]
+
         self._zip = zipfile.ZipFile(zip)
         self.params = json.loads(self._zip.comment)
         self._bg_loader = background_loader
@@ -21,6 +25,12 @@ class ZipDataset(torch.utils.data.Dataset):
         else:
             length = len(self._zip.filelist)
             self.range = range(int(start * length), int(end * length))
+
+    def __getstate__(self):
+        return self._args
+
+    def __setstate__(self, state):
+        self.__init__(**state)
 
     def __len__(self):
         return len(self.range)

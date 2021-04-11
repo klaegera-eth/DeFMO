@@ -24,13 +24,24 @@ class ZipLoader:
 
         if balance_subdirs:
             # create directory tree of zip contents
-            dict_tree = lambda: defaultdict(dict_tree)
-            self._dirtree = dict_tree()
+            self._dirtree = self._dict_tree()
             for name in self.names:
                 node = self._dirtree
                 for d in name.split("/")[:-1]:
                     node = node[d]
                 node[name] = None
+
+    def _dict_tree(self):
+        # needs to be here to allow pickling
+        return defaultdict(self._dict_tree)
+
+    def __getstate__(self):
+        return dict(zip=self._zip.filename, names=self.names, dirtree=self._dirtree)
+
+    def __setstate__(self, state):
+        self._zip = ZipFile(state["zip"])
+        self.names = state["names"]
+        self._dirtree = state["dirtree"]
 
     def __len__(self):
         return len(self.names)
