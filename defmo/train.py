@@ -9,7 +9,7 @@ from defmo.models import Encoder, Renderer
 from defmo.loss import Loss
 
 
-def train(data_train, data_val, epochs, batch_size=20, lr=0.001, lr_steps=1000, lr_decay=0.5):
+def train(data_train, data_val, epochs, losses, batch_size=20, lr=0.001, lr_steps=1000, lr_decay=0.5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.backends.cudnn.benchmark = True
 
@@ -18,7 +18,7 @@ def train(data_train, data_val, epochs, batch_size=20, lr=0.001, lr_steps=1000, 
 
     encoder = nn.DataParallel(Encoder()).to(device)
     renderer = nn.DataParallel(Renderer(data_train.params["n_frames"])).to(device)
-    loss = nn.DataParallel(Loss()).to(device)
+    loss = nn.DataParallel(Loss(losses)).to(device)
 
     optimizer = Optimizer(list(encoder.parameters()) + list(renderer.parameters()), lr=lr)
     scheduler = Scheduler(optimizer, lr_steps, lr_decay)

@@ -2,12 +2,9 @@ import torch
 
 
 class Loss(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, losses):
         super().__init__()
-        self.losses = [
-            Loss.Supervised(),
-            Loss.TemporalConsistency(padding=0.1, weight=10),
-        ]
+        self.losses = losses
 
     def forward(self, inputs, **outputs):
         return sum(loss(inputs, outputs) for loss in self.losses)
