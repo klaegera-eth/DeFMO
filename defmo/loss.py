@@ -65,7 +65,7 @@ class Loss(torch.nn.Module):
             error = (a - b).abs()
             error = (error * weights).sum(weight_dims)
             weights = weights.sum(weight_dims)
-            weights += weights == 0
+            weights = weights + (weights == 0)  # no division by 0
             error /= weights
             return error.mean()
 
@@ -104,5 +104,5 @@ class Loss(torch.nn.Module):
         def _normalize(_, tensor, dims):
             mean = tensor.mean(dims, keepdims=True)
             std = tensor.std(dims, unbiased=False, keepdims=True)
-            std += std == 0
+            std = std + (std == 0)  # no division by 0
             return (tensor - mean) / std
