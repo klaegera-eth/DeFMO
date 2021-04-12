@@ -30,11 +30,12 @@ def train(data_train, data_val, epochs, batch_size=20, lr=0.001, lr_steps=1000, 
             latent = encoder(batch["imgs_short_cat"])
             renders = renderer(latent)
 
-            loss_ = loss(batch, renders=renders)
-            print(loss_)
+            loss(batch, renders=renders).backward()
 
-            optimizer.zero_grad()
-            loss_.backward()
             optimizer.step()
+            optimizer.zero_grad()
+
+            print(loss.module)
 
         scheduler.step()
+        loss.module.reset()
