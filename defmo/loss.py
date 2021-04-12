@@ -63,11 +63,11 @@ class Loss(torch.nn.Module):
 
         def _l1(_, a, b, weights, weight_dims):
             error = (a - b).abs()
-            weighted = (error * weights).sum(weight_dims)
+            error = (error * weights).sum(weight_dims)
             weights = weights.sum(weight_dims)
             weights += weights == 0
-            weighted /= weights
-            return weighted.mean()
+            error /= weights
+            return error.mean()
 
     class TemporalConsistency(_BaseLoss):
         def __init__(self, padding, **kwargs):
