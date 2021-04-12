@@ -62,12 +62,14 @@ class Loss(torch.nn.Module):
             alpha_loss_out = self._l1(gt_alpha, rend_alpha, ~mask, dims)
             rgb_loss = self._l1(gt_rgb * gt_alpha, rend_rgb * rend_alpha, mask, dims)
 
-            return alpha_loss_in + alpha_loss_out + rgb_loss
+            return (alpha_loss_in + alpha_loss_out + rgb_loss) / 3
 
         def _l1(_, a, b, weights, weight_dims):
             error = (a - b).abs()
             weighted = (error * weights).sum(weight_dims)
-            weighted /= weights.sum(weight_dims)
+            weights = weights.sum(weight_dims)
+            weights += weights == 0
+            weighted /= weights
             return weighted.mean()
 
     class TemporalConsistency(_BaseLoss):
