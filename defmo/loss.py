@@ -17,20 +17,28 @@ class Loss(torch.nn.Module):
         return f"{self.__class__.__name__}( {', '.join(repr(l) for l in self.losses)} )"
 
     class _BaseLoss(torch.nn.Module):
-        def __init__(self):
+        def __init__(self, weight=1):
             super().__init__()
-            self.reset()
+            self.weight = weight
+            self.history = []
 
         def forward(self, inputs, outputs):
             loss = self.loss(inputs, outputs)
             self.history.append(loss.item())
-            return loss
+            return loss * self.weight
 
         def reset(self):
-            self.history = []
+            self.history.clear()
 
         def __repr__(self):
-            return f"{self.__class__.__name__}[ {sum(self.history) / len(self.history):.6f} ]"
+            rep = self.__class__.__name__
+            if self.history:
+                rep += "[ "
+                if self.weight != 1:
+                    rep += f"{self.weight} * "
+                rep += f"{sum(self.history) / len(self.history):.6f}"
+                rep += " ]"
+            return rep
 
     class Supervised(_BaseLoss):
         def loss(self, inputs, outputs):
