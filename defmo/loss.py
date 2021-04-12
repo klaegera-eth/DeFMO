@@ -4,7 +4,10 @@ import torch
 class Loss(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.losses = [Loss.Supervised()]
+        self.losses = [
+            Loss.Supervised(),
+            Loss.TemporalConsistency(padding=0.1, weight=10),
+        ]
 
     def forward(self, inputs, **outputs):
         return sum(loss(inputs, outputs) for loss in self.losses)
@@ -66,3 +69,41 @@ class Loss(torch.nn.Module):
             weighted = (error * weights).sum(weight_dims)
             weighted /= weights.sum(weight_dims)
             return weighted.mean()
+
+    class TemporalConsistency(_BaseLoss):
+        def __init__(self, padding, **kwargs):
+            super().__init__(**kwargs)
+            self.padding = padding
+
+        def loss(self, _, outputs):
+            rend = outputs["renders"]
+            padding = int(self.padding * rend.shape[-1])
+
+            # (batch, index, offset_y, offset_x)
+            zncc = self._zncc(rend[:, :-1], rend[:, 1:], padding)
+
+            # range [-1, 1] -> [1, 0]
+            return (1 - zncc.amax((2, 3)).mean()) / 2
+
+        def _zncc(self, a, b, padding):
+            # (batch, index, channel, y, x)
+            image_dims = (2, 3, 4)
+            image_shape = a.shape[2:]
+
+            a = self._normalize(a, image_dims)
+            b = self._normalize(b, image_dims)
+
+            # single batch with images as channels since weights are different for each image
+            inputs = a.reshape(1, -1, *image_shape)
+            weight = b.reshape(-1, 1, *image_shape)
+            padding = (0, padding, padding)
+
+            cc = torch.nn.functional.conv3d(inputs, weight, padding=padding, groups=len(weight))
+            cc /= image_shape.numel()
+            return cc.reshape(*a.shape[:2], *cc.shape[-2:])
+
+        def _normalize(_, tensor, dims):
+            mean = tensor.mean(dims, keepdims=True)
+            std = tensor.std(dims, unbiased=False, keepdims=True)
+            std += std == 0
+            return (tensor - mean) / std
