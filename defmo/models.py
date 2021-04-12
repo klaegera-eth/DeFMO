@@ -56,6 +56,7 @@ class Renderer(nn.Module):
 
     def forward(self, latent):
         b, _, w, h = latent.shape
+        self.ts = self.ts.to(latent.device)
         inputs = [torch.cat((ts.repeat(b, 1, w, h), latent), 1) for ts in self.ts]
         renders = torch.stack([self.model(i) for i in inputs], 1)
         return renders
