@@ -58,7 +58,7 @@ class Renderer(nn.Module):
         b, _, w, h = latent.shape
         inputs = [torch.cat((ts.repeat(b, 1, w, h), latent), 1) for ts in self.ts]
         renders = torch.stack([self.model(i) for i in inputs], 1)
-        return nn.Sigmoid(renders)
+        return renders
 
     def models(_, name):
         def resnet():
@@ -77,6 +77,7 @@ class Renderer(nn.Module):
                 nn.Conv2d(4, 4, kernel_size=3, stride=1, padding=1, bias=True),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(4, 4, kernel_size=3, stride=1, padding=1, bias=True),
+                nn.Sigmoid(),
             )
 
         def resnet_smaller():
