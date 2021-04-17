@@ -142,7 +142,15 @@ def render(output, obj, tex, loc, rot, blurs=[(0, -1)]):
 
 
 class Frustum:
-    def __init__(self, z_range, resolution, max_radius=0.6, dead_zone=0.05, focal_length=50, sensor_size=36):
+    def __init__(
+        self,
+        z_range,
+        resolution,
+        max_radius=0.6,
+        dead_zone=0.05,
+        focal_length=50,
+        sensor_size=36,
+    ):
         self.tan = (1 - dead_zone) * sensor_size / focal_length / 2
         self.offset = max_radius / self.tan * (self.tan ** 2 + 1) ** 0.5
         self.ratio = resolution[1] / resolution[0]
@@ -163,7 +171,7 @@ class Frustum:
             x2, y2, z2 = self.gen_point(z + max_delta_z * (random.random() * 2 - 1))
             if dxy_min <= (x - x2) ** 2 + (y - y2) ** 2 <= dxy_max:
                 return x2, y2, z2
-        raise ValueError("Failed to generate point in given range. Check input parameters.")
+        raise ValueError("Failed to generate point in given range. Check parameters.")
 
     def gen_point_pair(self, max_delta_z, delta_xy_range):
         for _ in range(50):
@@ -173,4 +181,4 @@ class Frustum:
             except ValueError:
                 continue
             return a, b
-        raise ValueError("Failed to generate point pair. Check input parameters.")
+        raise ValueError("Failed to generate point pair. Check parameters.")

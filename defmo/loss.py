@@ -110,12 +110,17 @@ class Loss(torch.nn.Module):
             a = self._normalize(a, image_dims)
             b = self._normalize(b, image_dims)
 
-            # single batch with images as channels since weights are different for each image
+            # reshape to single batch with images as channels
             inputs = a.reshape(1, -1, *image_shape)
             weight = b.reshape(-1, 1, *image_shape)
             padding = (0, padding, padding)
 
-            cc = torch.nn.functional.conv3d(inputs, weight, padding=padding, groups=len(weight))
+            cc = torch.nn.functional.conv3d(
+                inputs,
+                weight,
+                padding=padding,
+                groups=len(weight),
+            )
             cc /= image_shape.numel()
             return cc.reshape(*a.shape[:2], *cc.shape[-2:])
 

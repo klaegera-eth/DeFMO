@@ -9,7 +9,13 @@ from torchvision.transforms.functional import to_tensor
 class ZipDataset(torch.utils.data.Dataset):
     max_contrast_tries = 10
 
-    def __init__(self, zip, background_loader, item_range=(0, 1), min_contrast=255 / 10):
+    def __init__(
+        self,
+        zip,
+        background_loader,
+        item_range=(0, 1),
+        min_contrast=255 / 10,
+    ):
         # save args for pickling
         self._args = locals()
         del self._args["self"]

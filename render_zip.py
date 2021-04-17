@@ -16,7 +16,10 @@ from defmo import render, utils
 from defmo.utils import print_stderr as print
 
 # restart with Blender if necessary
-args = render.ensure_blender(r"C:\Program Files\Blender Foundation\Blender 2.91\blender.exe", suppress_output=True)
+args = render.ensure_blender(
+    r"C:\Program Files\Blender Foundation\Blender 2.91\blender.exe",
+    suppress_output=True,
+)
 
 
 n_sequences = int(args[0]) if len(args) else 5
@@ -54,7 +57,9 @@ render.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
 frustum = render.Frustum(p["z_range"], p["resolution"])
 
 time = datetime.now()
-filename = time.strftime(f"fmo_{len(p['blurs'])}_{p['n_frames']}_%y%m%d%H%M%S_{os.getpid()}.zip")
+filename = time.strftime(
+    f"fmo_{len(p['blurs'])}_{p['n_frames']}_%y%m%d%H%M%S_{os.getpid()}.zip"
+)
 
 with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
 
@@ -74,7 +79,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
 
             with io.BytesIO() as out:
                 with objs.as_tempfile(obj) as objf, texs.as_tempfile(tex) as texf:
-                    render.render(out, objf, texf, loc, (rot_start, rot_end), p["blurs"])
+                    render.render(
+                        out, objf, texf, loc, (rot_start, rot_end), p["blurs"]
+                    )
 
                 if check_discard(out):
                     n_discarded += 1
@@ -83,7 +90,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
                 # save render to zip
                 name = f"{seq_n:04}.webp"
                 zip.writestr(name, out.getvalue())
-                zip.getinfo(name).comment = json.dumps({"obj": obj, "tex": tex}).encode()
+                zip.getinfo(name).comment = json.dumps(
+                    {"obj": obj, "tex": tex}
+                ).encode()
 
             break
 
@@ -93,9 +102,9 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
         elapsed = elapsed // 1000000 * 1000000
         estimate = rate * n_sequences // 1000000 * 1000000
         print(
-            f"{seq_n + 1:>{len(str(n_sequences))}} / {n_sequences} "
-            f"@ {rate.total_seconds():.2f} s/seq = {elapsed} / {estimate} "
-            f"({n_discarded} discarded)"
+            f"{seq_n + 1:>{len(str(n_sequences))}} / {n_sequences}",
+            f"@ {rate.total_seconds():.2f} s/seq = {elapsed} / {estimate}",
+            f"({n_discarded} discarded)",
         )
 
         # check if "stop" file exists to abort rendering early
