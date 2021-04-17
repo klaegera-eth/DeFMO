@@ -55,7 +55,6 @@ class ZipDataset(torch.utils.data.Dataset):
 
         return {
             "imgs": torch.stack(imgs),
-            "imgs_short_cat": torch.cat(imgs[1:]),
             "blurs": torch.stack(blurs),
             "frames": torch.stack(frames),
             "bgs": torch.stack(bgs),

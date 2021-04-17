@@ -51,7 +51,8 @@ def train(
 
         for batch, inputs in enumerate(gen_train):
 
-            latent = encoder(inputs["imgs_short_cat"])
+            imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
+            latent = encoder(torch.cat(imgs, 1))
             renders = renderer(latent)
             loss(inputs, renders=renders).backward()
 
@@ -72,7 +73,8 @@ def train(
 
             for batch, inputs in enumerate(gen_val):
 
-                latent = encoder(inputs["imgs_short_cat"])
+                imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
+                latent = encoder(torch.cat(imgs, 1))
                 renders = renderer(latent)
                 loss(inputs, renders=renders)
 
