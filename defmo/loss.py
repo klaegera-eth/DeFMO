@@ -9,12 +9,22 @@ class Loss(torch.nn.Module):
     def forward(self, inputs, **outputs):
         return sum(loss(inputs, outputs) for loss in self.losses)
 
+    def mean(self, weighted=True):
+        if not self.losses:
+            return 0
+        means = [loss.mean(weighted) for loss in self.losses]
+        return sum(means) / len(means)
+
     def reset(self):
         for loss in self.losses:
             loss.reset()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}( {', '.join(repr(l) for l in self.losses)} )"
+        if self.losses:
+            losses = ", ".join(repr(l) for l in self.losses)
+        else:
+            losses = "None"
+        return f"{self.__class__.__name__}( {self.mean():.6f} : {losses} )"
 
     class _BaseLoss(torch.nn.Module):
         def __init__(self, weight=1):
@@ -27,6 +37,14 @@ class Loss(torch.nn.Module):
             self.history.append(loss.item())
             return loss * self.weight
 
+        def mean(self, weighted=True):
+            if not self.history:
+                return 0
+            mean = sum(self.history) / len(self.history)
+            if weighted:
+                mean *= self.weight
+            return mean
+
         def reset(self):
             self.history.clear()
 
@@ -36,7 +54,7 @@ class Loss(torch.nn.Module):
                 rep += "[ "
                 if self.weight != 1:
                     rep += f"{self.weight} * "
-                rep += f"{sum(self.history) / len(self.history):.6f}"
+                rep += f"{self.mean(weighted=False):.6f}"
                 rep += " ]"
             return rep
 
