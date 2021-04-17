@@ -9,33 +9,95 @@ from defmo.models import Encoder, Renderer
 from defmo.loss import Loss
 
 
-def train(data_train, data_val, epochs, losses, batch_size=20, lr=0.001, lr_steps=1000, lr_decay=0.5):
+def train(
+    data_train,
+    data_val,
+    epochs,
+    losses,
+    batch_size=20,
+    lr=0.001,
+    lr_steps=1000,
+    lr_decay=0.5,
+):
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.benchmark = True
 
-    gen_train = DataLoader(data_train, batch_size, shuffle=True, drop_last=True, num_workers=torch.get_num_threads())
-    gen_val = DataLoader(data_val, batch_size, shuffle=True, drop_last=True, num_workers=torch.get_num_threads())
+    gen_train, gen_val = (
+        DataLoader(data, batch_size, shuffle=True, num_workers=torch.get_num_threads())
+        for data in (data_train, data_val)
+    )
 
-    encoder = nn.DataParallel(Encoder()).to(device)
-    renderer = nn.DataParallel(Renderer(data_train.params["n_frames"])).to(device)
-    loss = nn.DataParallel(Loss(losses)).to(device)
+    encoder, renderer, loss = (
+        nn.DataParallel(module).to(device)
+        for module in (
+            Encoder(),
+            Renderer(data_train.params["n_frames"]),
+            Loss(losses),
+        )
+    )
 
-    optimizer = Optimizer(list(encoder.parameters()) + list(renderer.parameters()), lr=lr)
+    optimizer = Optimizer(
+        (p for m in (encoder, renderer) for p in m.parameters()),
+        lr=lr,
+    )
     scheduler = Scheduler(optimizer, lr_steps, lr_decay)
 
+    best_loss_val = float("inf")
+
+    print("Begin")
     for epoch in range(epochs):
-        encoder.train(), renderer.train()
+        encoder.train(), renderer.train(), loss.module.reset()
 
-        for batch in gen_train:
-            latent = encoder(batch["imgs_short_cat"])
+        for batch, inputs in enumerate(gen_train):
+
+            latent = encoder(inputs["imgs_short_cat"])
             renders = renderer(latent)
-
-            loss(batch, renders=renders).backward()
+            loss(inputs, renders=renders).backward()
 
             optimizer.step()
             optimizer.zero_grad()
 
-            print(loss.module)
+            print(
+                f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
+                f"Batch {batch + 1:0{len(str(len(gen_train)))}}/{len(gen_train)}",
+                loss.module,
+            )
 
+        loss_train = loss.module.mean()
         scheduler.step()
-        loss.module.reset()
+
+        with torch.no_grad():
+            encoder.eval(), renderer.eval(), loss.module.reset()
+
+            for batch, inputs in enumerate(gen_val):
+
+                latent = encoder(inputs["imgs_short_cat"])
+                renders = renderer(latent)
+                loss(inputs, renders=renders)
+
+            print(
+                f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
+                f"Validation ({len(gen_val)} batches)",
+                loss.module,
+            )
+
+            loss_val = loss.module.mean()
+
+        checkpoint = {
+            "modules": {
+                "encoder": encoder.module,
+                "renderer": renderer.module,
+                "loss": loss.module,
+            },
+            "scores": (loss_train, loss_val),
+            "epochs": epoch + 1,
+        }
+
+        if loss_val < best_loss_val:
+            best_loss_val = loss_val
+            print(f"Saving (train: {loss_train:.6f}, valid: {loss_val:.6f})")
+            torch.save(checkpoint, "checkpoint_best.pt")
+
+    print(f"Saving (train: {loss_train:.6f}, valid: {loss_val:.6f})")
+    torch.save(checkpoint, "checkpoint_end.pt")
