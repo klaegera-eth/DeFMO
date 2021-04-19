@@ -6,7 +6,7 @@ class Loss(torch.nn.Module):
         super().__init__()
         self.losses = losses
 
-    def forward(self, inputs, **outputs):
+    def forward(self, inputs, outputs):
         return sum(loss(inputs, outputs) for loss in self.losses)
 
     def mean(self, weighted=True):

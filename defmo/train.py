@@ -1,100 +1,92 @@
 import torch
 import torch.nn as nn
+
 from torch.utils.data import DataLoader
 
 from torch.optim import Adam as Optimizer
 from torch.optim.lr_scheduler import StepLR as Scheduler
 
-from defmo.models import Encoder, Renderer
-from defmo.loss import Loss
-
 
 def train(
-    data_train,
-    data_val,
+    datasets,
+    modules,
+    step,
+    loss,
     epochs,
-    losses,
     batch_size=20,
     lr=0.001,
     lr_steps=4,
     lr_decay=0.8,
+    benchmark=False,
 ):
 
     # required for correct operation of torch multiprocessing
     torch.multiprocessing.set_start_method("spawn", force=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = benchmark
 
-    gen_train, gen_val = (
-        DataLoader(data, batch_size, shuffle=True, num_workers=torch.get_num_threads())
-        for data in (data_train, data_val)
-    )
+    datasets = {
+        k: DataLoader(ds, batch_size, shuffle=True, num_workers=torch.get_num_threads())
+        for k, ds in datasets.items()
+    }
 
-    encoder, renderer, loss = (
-        nn.DataParallel(module).to(device)
-        for module in (
-            Encoder(),
-            Renderer(data_train.params["n_frames"]),
-            Loss(losses),
-        )
-    )
+    modules_ = {k: nn.DataParallel(m).to(device) for k, m in modules.items()}
+    loss_ = nn.DataParallel(loss).to(device)
 
-    optimizer = Optimizer(
-        (p for m in (encoder, renderer) for p in m.parameters()),
-        lr=lr,
-    )
+    optimizer = Optimizer((p for m in modules_.values() for p in m.parameters()), lr=lr)
     scheduler = Scheduler(optimizer, lr_steps, lr_decay)
 
     best_loss_val = float("inf")
 
-    print("Begin")
+    print(
+        f"Begin training ({device}) -",
+        f"{torch.get_num_threads()} CPUs,",
+        f"{torch.cuda.device_count()} GPUs",
+    )
     for epoch in range(epochs):
-        encoder.train(), renderer.train(), loss.module.reset()
+        loss.reset()
+        for m in modules_.values():
+            m.train()
 
-        for batch, inputs in enumerate(gen_train):
-
-            imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
-            latent = encoder(torch.cat(imgs, 1))
-            renders = renderer(latent)
-            loss(inputs, renders=renders).backward()
+        ds = datasets["training"]
+        for batch, inputs in enumerate(ds):
+            outputs = step(modules_, inputs)
+            loss_(inputs, outputs).backward()
 
             optimizer.step()
             optimizer.zero_grad()
 
             print(
                 f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
-                f"Batch {batch + 1:0{len(str(len(gen_train)))}}/{len(gen_train)}",
-                loss.module,
+                f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
+                loss,
             )
 
-        loss_train = loss.module.mean()
+        loss_train = loss.mean()
         scheduler.step()
 
         with torch.no_grad():
-            encoder.eval(), renderer.eval(), loss.module.reset()
+            loss.reset()
+            for m in modules_.values():
+                m.eval()
 
-            for batch, inputs in enumerate(gen_val):
-
-                imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
-                latent = encoder(torch.cat(imgs, 1))
-                renders = renderer(latent)
-                loss(inputs, renders=renders)
+            ds = datasets["validation"]
+            for batch, inputs in enumerate(ds):
+                outputs = step(modules_, inputs)
+                loss_(inputs, outputs)
 
             print(
                 f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
-                f"Validation ({len(gen_val)} batches)",
-                loss.module,
+                f"Validation ({len(ds)} batches)",
+                loss,
             )
 
-            loss_val = loss.module.mean()
+            loss_val = loss.mean()
 
         checkpoint = {
-            "modules": {
-                "encoder": encoder.module,
-                "renderer": renderer.module,
-                "loss": loss.module,
-            },
+            "modules": modules,
+            "loss": loss,
             "scores": (loss_train, loss_val),
             "epochs": epoch + 1,
         }
