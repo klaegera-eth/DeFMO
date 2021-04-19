@@ -16,8 +16,8 @@ def train(
     losses,
     batch_size=20,
     lr=0.001,
-    lr_steps=1000,
-    lr_decay=0.5,
+    lr_steps=4,
+    lr_decay=0.8,
 ):
 
     # required for correct operation of torch multiprocessing
