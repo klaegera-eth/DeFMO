@@ -20,6 +20,9 @@ def train(
     lr_decay=0.5,
 ):
 
+    # required for correct operation of torch multiprocessing
+    torch.multiprocessing.set_start_method("spawn", force=True)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # torch.backends.cudnn.benchmark = True
 
