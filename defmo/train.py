@@ -52,7 +52,7 @@ def train(
         ds = datasets["training"]
         for batch, inputs in enumerate(ds):
             outputs = step(modules_, inputs)
-            loss_(inputs, outputs).backward()
+            loss_(inputs, outputs).mean().backward()
 
             optimizer.step()
             optimizer.zero_grad()

@@ -30,27 +30,29 @@ class Loss(torch.nn.Module):
         def __init__(self, weight=1):
             super().__init__()
             self.weight = weight
-            self.history = []
+            self.reset()
 
         def forward(self, inputs, outputs):
             loss = self.loss(inputs, outputs)
-            self.history.append(loss.item())
+            self.sum += loss.sum().item()
+            self.count += len(loss)
             return loss * self.weight
 
         def mean(self, weighted=True):
-            if not self.history:
+            if self.count == 0:
                 return 0
-            mean = sum(self.history) / len(self.history)
+            mean = self.sum / self.count
             if weighted:
                 mean *= self.weight
             return mean
 
         def reset(self):
-            self.history.clear()
+            self.sum = 0
+            self.count = 0
 
         def __repr__(self):
             rep = self.__class__.__name__
-            if self.history:
+            if self.count:
                 rep += "[ "
                 if self.weight != 1:
                     rep += f"{self.weight} * "
@@ -85,7 +87,7 @@ class Loss(torch.nn.Module):
             weights = weights.sum(weight_dims)
             weights = weights + (weights == 0)  # no division by 0
             error /= weights
-            return error.mean()
+            return error.mean(1)
 
     class TemporalConsistency(_BaseLoss):
         def __init__(self, padding, **kwargs):
@@ -100,7 +102,7 @@ class Loss(torch.nn.Module):
             zncc = self._zncc(rend[:, :-1], rend[:, 1:], padding)
 
             # range [-1, 1] -> [1, 0]
-            return (1 - zncc.amax((2, 3)).mean()) / 2
+            return (1 - zncc.amax((2, 3)).mean(1)) / 2
 
         def _zncc(self, a, b, padding):
             # (batch, index, channel, y, x)
