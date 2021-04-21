@@ -1,40 +1,32 @@
-import torch
-
-from defmo import dataset, utils, train, models
-from defmo.loss import Loss
+from defmo.train import train
+from defmo.dataset import ZipDataset
+from defmo.utils import ZipLoader
+from defmo.models import Model, Loss
 
 
 if __name__ == "__main__":
 
     datasets = {
-        "training": dataset.ZipDataset(
+        "training": ZipDataset(
             "data/fmo_3_24_v1.zip",
-            utils.ZipLoader("data/vot2018.zip", balance_subdirs=True),
+            ZipLoader("data/vot2018.zip", balance_subdirs=True),
             item_range=(0, 0.9),
         ),
-        "validation": dataset.ZipDataset(
+        "validation": ZipDataset(
             "data/fmo_3_24_v1.zip",
-            utils.ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
+            ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
             item_range=(0.9, 1),
         ),
     }
 
-    modules = {
-        "encoder": models.Encoder(),
-        "renderer": models.Renderer(datasets["training"].params["n_frames"]),
-    }
-
-    def step(modules, inputs):
-        imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
-        latent = modules["encoder"](torch.cat(imgs, 1))
-        renders = modules["renderer"](latent)
-        return {"renders": renders}
-
-    loss = Loss(
-        [
+    model = Model(
+        n_frames=datasets["training"].params["n_frames"],
+        encoder="v2",
+        renderer="resnet",
+        losses=[
             Loss.Supervised(),
             # Loss.TemporalConsistency(padding=0.1),
-        ]
+        ],
     )
 
-    train.train(datasets, modules, step, loss, epochs=1, batch_size=3)
+    train(datasets, model, epochs=1, batch_size=3)

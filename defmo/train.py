@@ -9,9 +9,7 @@ from torch.optim.lr_scheduler import StepLR as Scheduler
 
 def train(
     datasets,
-    modules,
-    step,
-    loss,
+    model,
     epochs,
     batch_size=20,
     lr=0.001,
@@ -31,10 +29,8 @@ def train(
         for k, ds in datasets.items()
     }
 
-    modules_ = {k: nn.DataParallel(m).to(device) for k, m in modules.items()}
-    loss_ = nn.DataParallel(loss).to(device)
-
-    optimizer = Optimizer((p for m in modules_.values() for p in m.parameters()), lr=lr)
+    model_dp = nn.DataParallel(model).to(device)
+    optimizer = Optimizer(model.parameters(), lr=lr)
     scheduler = Scheduler(optimizer, lr_steps, lr_decay)
 
     best_loss_val = float("inf")
@@ -45,14 +41,12 @@ def train(
         f"{torch.cuda.device_count()} GPUs",
     )
     for epoch in range(epochs):
-        loss.reset()
-        for m in modules_.values():
-            m.train()
+        model_dp.train()
 
         ds = datasets["training"]
         for batch, inputs in enumerate(ds):
-            outputs = step(modules_, inputs)
-            loss_(inputs, outputs).mean().backward()
+            losses = model_dp(inputs)
+            model.loss.backward(losses)
 
             optimizer.step()
             optimizer.zero_grad()
@@ -60,33 +54,30 @@ def train(
             print(
                 f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
                 f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
-                loss,
+                model.loss,
             )
 
-        loss_train = loss.mean()
+        loss_train = model.loss.mean()
         scheduler.step()
 
         with torch.no_grad():
-            loss.reset()
-            for m in modules_.values():
-                m.eval()
+            model_dp.eval()
 
             ds = datasets["validation"]
             for batch, inputs in enumerate(ds):
-                outputs = step(modules_, inputs)
-                loss_(inputs, outputs)
+                losses = model_dp(inputs)
+                model.loss.backward(losses)
 
             print(
                 f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
                 f"Validation ({len(ds)} batches)",
-                loss,
+                model.loss,
             )
 
-            loss_val = loss.mean()
+            loss_val = model.loss.mean()
 
         checkpoint = {
-            "modules": modules,
-            "loss": loss,
+            "model": model,
             "scores": (loss_train, loss_val),
             "epochs": epoch + 1,
         }
