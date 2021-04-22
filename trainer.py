@@ -1,3 +1,6 @@
+import sys
+import torch
+
 from defmo.train import Trainer
 from defmo.dataset import ZipDataset
 from defmo.utils import ZipLoader
@@ -19,14 +22,21 @@ if __name__ == "__main__":
         ),
     }
 
-    model = Model(
-        n_frames=datasets["training"].params["n_frames"],
-        losses=[
-            Loss.Supervised(),
-            # Loss.TemporalConsistency(padding=0.1),
-        ],
-        encoder="v2",
-        renderer="resnet",
-    )
+    n_frames = datasets["training"].params["n_frames"]
+    losses = [
+        Loss.Supervised(),
+        # Loss.TemporalConsistency(padding=0.1),
+    ]
 
-    Trainer(model).train(datasets, epochs=1, batch_size=3)
+    if len(sys.argv) > 1:
+        file = sys.argv[1]
+        checkpoint = torch.load(file, map_location="cpu")
+        model = Model(n_frames, losses, checkpoint=checkpoint["model"])
+        trainer = Trainer(model, checkpoint=checkpoint)
+        epochs, loss = checkpoint["epochs"], checkpoint["loss"]
+        print(f"Loaded {file}: {epochs} epochs, {checkpoint['loss']:.5f} loss")
+    else:
+        model = Model(n_frames, losses, encoder="v2", renderer="resnet")
+        trainer = Trainer(model)
+
+    trainer.train(datasets, epochs=1, batch_size=3)
