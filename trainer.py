@@ -1,4 +1,4 @@
-from defmo.train import train
+from defmo.train import Trainer
 from defmo.dataset import ZipDataset
 from defmo.utils import ZipLoader
 from defmo.models import Model, Loss
@@ -21,12 +21,12 @@ if __name__ == "__main__":
 
     model = Model(
         n_frames=datasets["training"].params["n_frames"],
-        encoder="v2",
-        renderer="resnet",
         losses=[
             Loss.Supervised(),
             # Loss.TemporalConsistency(padding=0.1),
         ],
+        encoder="v2",
+        renderer="resnet",
     )
 
-    train(datasets, model, epochs=1, batch_size=3)
+    Trainer(model).train(datasets, epochs=1, batch_size=3)

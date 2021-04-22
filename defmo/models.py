@@ -6,17 +6,29 @@ from torchvision.models.resnet import Bottleneck
 
 
 class Model(nn.Module):
-    def __init__(self, n_frames, encoder, renderer, losses):
+    def __init__(self, n_frames, losses, encoder=None, renderer=None, checkpoint=None):
         super().__init__()
-        self.encoder = Encoder(encoder)
-        self.renderer = Renderer(n_frames, renderer)
+        self.models = dict(encoder=encoder, renderer=renderer)
+        if checkpoint is not None:
+            self.models = checkpoint["models"]
+        self.encoder = Encoder(self.models["encoder"])
+        self.renderer = Renderer(n_frames, self.models["renderer"])
         self.loss = Loss(losses)
+        if checkpoint is not None:
+            self.load_state_dict(checkpoint["state"])
 
     def forward(self, inputs):
+        outputs = self.process(inputs)
+        return self.loss(inputs, outputs)
+
+    def process(self, inputs):
         imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
         latent = self.encoder(torch.cat(imgs, 1))
         renders = self.renderer(latent)
-        return self.loss(inputs, renders=renders)
+        return dict(latent=latent, renders=renders)
+
+    def get_state(self):
+        return dict(models=self.models, state=self.state_dict())
 
 
 class Encoder(nn.Module):
@@ -165,69 +177,57 @@ class Loss(nn.Module):
         self.losses = losses
         self.was_training = False
 
-    def forward(self, inputs, **outputs):
+    def forward(self, inputs, outputs):
         losses = [loss(inputs, outputs) for loss in self.losses]
         return torch.stack(losses, 1)
 
-    def backward(self, losses):
+    def record(self, batch):
         if self.training != self.was_training:
             self.was_training = self.training
             for loss in self.losses:
-                loss.clear_record()
-        for loss, batch in zip(self.losses, losses.split(1, 1)):
-            loss.record(batch)
-        if self.training:
-            losses.mean().backward()
+                loss.history.clear()
+        for row in batch:
+            for loss, val in zip(self.losses, row):
+                loss.history.append(val)
 
-    def mean(self, weighted=True):
+    def mean(self, most_recent=None):
         if not self.losses:
             return 0
-        means = [loss.mean(weighted) for loss in self.losses]
+        means = [loss.mean(most_recent) for loss in self.losses]
         return sum(means) / len(means)
 
     def __repr__(self):
+        rep = f"{self.__class__.__name__}("
         if self.losses:
             losses = ", ".join(repr(l) for l in self.losses)
-        else:
-            losses = "None"
-        return f"{self.__class__.__name__}( {self.mean():.6f} : {losses} )"
+            rep += f" {self.mean(100):.5f}/{self.mean():.5f} : {losses} "
+        return rep + ")"
 
     class _BaseLoss(nn.Module):
         def __init__(self, weight=1):
             super().__init__()
             self.weight = weight
-            self.clear_record()
+            self.history = []
 
         def forward(self, inputs, outputs):
             loss = self.loss(inputs, outputs)
             return loss * self.weight
 
-        def record(self, batch):
-            with torch.no_grad():
-                self.sum += batch.sum().item()
-                self.count += len(batch)
-
-        def clear_record(self):
-            self.sum = 0
-            self.count = 0
-
-        def mean(self, weighted=True):
-            if self.count == 0:
+        def mean(self, most_recent=None):
+            history = self.history
+            if most_recent:
+                history = history[-most_recent:]
+            if not history:
                 return 0
-            mean = self.sum / self.count
-            if weighted:
-                mean *= self.weight
-            return mean
+            return sum(history) / len(history)
 
         def __repr__(self):
-            rep = self.__class__.__name__
-            if self.count:
-                rep += "[ "
-                if self.weight != 1:
-                    rep += f"{self.weight} * "
-                rep += f"{self.mean(weighted=False):.6f}"
-                rep += " ]"
-            return rep
+            rep = f"{self.__class__.__name__}["
+            if self.weight != 1:
+                rep += f" ({self.weight}x)"
+            if self.history:
+                rep += f" {self.mean(100):.4f}/{self.mean():.4f}"
+            return rep + " ]"
 
     class Supervised(_BaseLoss):
         def loss(self, inputs, outputs):

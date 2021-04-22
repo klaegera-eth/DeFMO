@@ -7,85 +7,101 @@ from torch.optim import Adam as Optimizer
 from torch.optim.lr_scheduler import StepLR as Scheduler
 
 
-def train(
-    datasets,
-    model,
-    epochs,
-    batch_size=20,
-    lr=0.001,
-    lr_steps=4,
-    lr_decay=0.8,
-    benchmark=False,
-):
+class Trainer:
+    def __init__(
+        self,
+        model,
+        lr=0.001,
+        lr_steps=4,
+        lr_decay=0.8,
+        checkpoint=None,
+    ):
+        # required for correct operation of torch multiprocessing
+        torch.multiprocessing.set_start_method("spawn", force=True)
 
-    # required for correct operation of torch multiprocessing
-    torch.multiprocessing.set_start_method("spawn", force=True)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.backends.cudnn.benchmark = benchmark
+        self.model = model
+        self.model_dp = nn.DataParallel(model).to(self.device)
+        self.optimizer = Optimizer(model.parameters(), lr=lr)
+        self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
 
-    datasets = {
-        k: DataLoader(ds, batch_size, shuffle=True, num_workers=torch.get_num_threads())
-        for k, ds in datasets.items()
-    }
+        self.epoch = 0
+        self.best_loss = float("inf")
 
-    model_dp = nn.DataParallel(model).to(device)
-    optimizer = Optimizer(model.parameters(), lr=lr)
-    scheduler = Scheduler(optimizer, lr_steps, lr_decay)
+        if checkpoint is not None:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+            self.epoch = checkpoint["epochs"]
+            self.best_loss = checkpoint["loss"]
 
-    best_loss_val = float("inf")
+    def train(self, datasets, epochs, batch_size, benchmark=False):
+        torch.backends.cudnn.benchmark = benchmark
 
-    print(
-        f"Begin training ({device}) -",
-        f"{torch.get_num_threads()} CPUs,",
-        f"{torch.cuda.device_count()} GPUs",
-    )
-    for epoch in range(epochs):
-        model_dp.train()
-
-        ds = datasets["training"]
-        for batch, inputs in enumerate(ds):
-            losses = model_dp(inputs)
-            model.loss.backward(losses)
-
-            optimizer.step()
-            optimizer.zero_grad()
-
-            print(
-                f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
-                f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
-                model.loss,
+        datasets = {
+            k: DataLoader(
+                ds, batch_size, shuffle=True, num_workers=torch.get_num_threads()
             )
-
-        loss_train = model.loss.mean()
-        scheduler.step()
-
-        with torch.no_grad():
-            model_dp.eval()
-
-            ds = datasets["validation"]
-            for batch, inputs in enumerate(ds):
-                losses = model_dp(inputs)
-                model.loss.backward(losses)
-
-            print(
-                f"Epoch {epoch + 1:0{len(str(epochs))}}/{epochs}",
-                f"Validation ({len(ds)} batches)",
-                model.loss,
-            )
-
-            loss_val = model.loss.mean()
-
-        checkpoint = {
-            "model": model,
-            "scores": (loss_train, loss_val),
-            "epochs": epoch + 1,
+            for k, ds in datasets.items()
         }
 
-        if loss_val < best_loss_val:
-            best_loss_val = loss_val
-            print(f"Saving (train: {loss_train:.6f}, valid: {loss_val:.6f})")
-            torch.save(checkpoint, "checkpoint_best.pt")
+        print(
+            f"Begin training ({self.device}) -",
+            f"{torch.get_num_threads()} CPUs,",
+            f"{torch.cuda.device_count()} GPUs",
+        )
+        epochs += self.epoch
+        for _ in range(self.epoch, epochs):
+            self.epoch += 1
+            self.model_dp.train()
 
-    print(f"Saving (train: {loss_train:.6f}, valid: {loss_val:.6f})")
-    torch.save(checkpoint, "checkpoint_end.pt")
+            ds = datasets["training"]
+            for batch, inputs in enumerate(ds):
+                losses = self.model_dp(inputs)
+                self.model.loss.record(losses)
+
+                losses.mean().backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                print(
+                    f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
+                    f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
+                    self.model.loss,
+                )
+
+            self.scheduler.step()
+
+            with torch.no_grad():
+                self.model_dp.eval()
+
+                ds = datasets["validation"]
+                for batch, inputs in enumerate(ds):
+                    losses = self.model_dp(inputs)
+                    self.model.loss.record(losses)
+
+                print(
+                    f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
+                    f"Validation ({len(ds)} batches)",
+                    self.model.loss,
+                )
+
+                loss_val = self.model.loss.mean()
+                if loss_val < self.best_loss:
+                    self.best_loss = loss_val
+                    self.save("checkpoint_best.pt")
+
+        self.save("checkpoint_end.pt")
+
+    def save(self, filename):
+        print("Saving", filename)
+        torch.save(
+            {
+                "model": self.model.get_state(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict(),
+                "loss": self.best_loss,
+                "epochs": self.epoch,
+            },
+            filename,
+        )
