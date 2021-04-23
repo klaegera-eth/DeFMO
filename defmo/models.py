@@ -188,7 +188,7 @@ class Loss(nn.Module):
                 loss.history.clear()
         for row in batch:
             for loss, val in zip(self.losses, row):
-                loss.history.append(val)
+                loss.history.append(val.item())
 
     def mean(self, most_recent=None):
         if not self.losses:
