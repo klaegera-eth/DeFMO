@@ -12,7 +12,7 @@ class Trainer:
         self,
         model,
         lr=0.001,
-        lr_steps=4,
+        lr_steps=20,
         lr_decay=0.8,
         checkpoint=None,
     ):

@@ -28,15 +28,13 @@ if __name__ == "__main__":
     ]
 
     try:
-        file = sys.argv[1]
-        checkpoint = torch.load(file, map_location="cpu")
-        model = Model(losses, checkpoint=checkpoint["model"])
-        trainer = Trainer(model, checkpoint=checkpoint)
-        epochs, loss = checkpoint["epochs"], checkpoint["loss"]
-        print(f"Loaded {file}: {epochs} epochs, {checkpoint['loss']:.5f} loss")
+        chkp = torch.load(sys.argv[1], map_location="cpu")
+        model = Model(losses, checkpoint=chkp["model"])
+        trainer = Trainer(model, checkpoint=chkp)
+        print(f"Loaded {sys.argv[1]}: {chkp['epochs']} epochs, {chkp['loss']:.5f} loss")
     except:
-        print("Loading default model")
         model = Model(losses, encoder="v2", renderer="resnet")
-        trainer = Trainer(model, lr_steps=20)
+        trainer = Trainer(model)
+        print("Loaded default model")
 
     trainer.train(datasets, epochs=1, batch_size=3)
