@@ -22,7 +22,6 @@ if __name__ == "__main__":
         ),
     }
 
-    n_frames = datasets["training"].params["n_frames"]
     losses = [
         Loss.Supervised(),
         # Loss.TemporalConsistency(padding=0.1),
@@ -31,13 +30,13 @@ if __name__ == "__main__":
     try:
         file = sys.argv[1]
         checkpoint = torch.load(file, map_location="cpu")
-        model = Model(n_frames, losses, checkpoint=checkpoint["model"])
+        model = Model(losses, checkpoint=checkpoint["model"])
         trainer = Trainer(model, checkpoint=checkpoint)
         epochs, loss = checkpoint["epochs"], checkpoint["loss"]
         print(f"Loaded {file}: {epochs} epochs, {checkpoint['loss']:.5f} loss")
     except:
         print("Loading default model")
-        model = Model(n_frames, losses, encoder="v2", renderer="resnet")
+        model = Model(losses, encoder="v2", renderer="resnet")
         trainer = Trainer(model, lr_steps=20)
 
     trainer.train(datasets, epochs=1, batch_size=3)

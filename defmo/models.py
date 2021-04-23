@@ -6,13 +6,13 @@ from torchvision.models.resnet import Bottleneck
 
 
 class Model(nn.Module):
-    def __init__(self, n_frames, losses, encoder=None, renderer=None, checkpoint=None):
+    def __init__(self, losses, encoder=None, renderer=None, checkpoint=None):
         super().__init__()
         self.models = dict(encoder=encoder, renderer=renderer)
         if checkpoint is not None:
             self.models = checkpoint["models"]
         self.encoder = Encoder(self.models["encoder"])
-        self.renderer = Renderer(n_frames, self.models["renderer"])
+        self.renderer = Renderer(self.models["renderer"])
         self.loss = Loss(losses)
         if checkpoint is not None:
             self.load_state_dict(checkpoint["state"])
@@ -24,7 +24,7 @@ class Model(nn.Module):
     def process(self, inputs):
         imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
         latent = self.encoder(torch.cat(imgs, 1))
-        renders = self.renderer(latent)
+        renders = self.renderer(latent, n_frames=inputs["frames"].shape[1])
         return dict(latent=latent, renders=renders)
 
     def get_state(self):
@@ -84,15 +84,14 @@ class Encoder(nn.Module):
 
 
 class Renderer(nn.Module):
-    def __init__(self, n_frames, model):
+    def __init__(self, model):
         super().__init__()
-        self.ts = torch.linspace(0, 1, n_frames)
         self.model = self.models(model)
 
-    def forward(self, latent):
+    def forward(self, latent, n_frames):
         b, _, w, h = latent.shape
-        self.ts = self.ts.to(latent.device)
-        inputs = [torch.cat((ts.repeat(b, 1, w, h), latent), 1) for ts in self.ts]
+        ts = torch.linspace(0, 1, n_frames).to(latent.device)
+        inputs = [torch.cat((t.repeat(b, 1, w, h), latent), 1) for t in ts]
         renders = torch.stack([self.model(i) for i in inputs], 1)
         return renders
 
