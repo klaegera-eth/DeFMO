@@ -28,15 +28,16 @@ if __name__ == "__main__":
         # Loss.TemporalConsistency(padding=0.1),
     ]
 
-    if len(sys.argv) > 1:
+    try:
         file = sys.argv[1]
         checkpoint = torch.load(file, map_location="cpu")
         model = Model(n_frames, losses, checkpoint=checkpoint["model"])
         trainer = Trainer(model, checkpoint=checkpoint)
         epochs, loss = checkpoint["epochs"], checkpoint["loss"]
         print(f"Loaded {file}: {epochs} epochs, {checkpoint['loss']:.5f} loss")
-    else:
+    except:
+        print("Loading default model")
         model = Model(n_frames, losses, encoder="v2", renderer="resnet")
-        trainer = Trainer(model)
+        trainer = Trainer(model, lr_steps=20)
 
     trainer.train(datasets, epochs=1, batch_size=3)
