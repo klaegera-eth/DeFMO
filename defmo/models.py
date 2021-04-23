@@ -6,7 +6,7 @@ from torchvision.models.resnet import Bottleneck
 
 
 class Model(nn.Module):
-    def __init__(self, losses, encoder=None, renderer=None, checkpoint=None):
+    def __init__(self, losses=[], encoder=None, renderer=None, checkpoint=None):
         super().__init__()
         self.models = dict(encoder=encoder, renderer=renderer)
         if checkpoint is not None:
@@ -19,7 +19,7 @@ class Model(nn.Module):
 
     def forward(self, inputs):
         outputs = self.process(inputs)
-        return self.loss(inputs, outputs)
+        return self.loss(inputs, outputs) if self.loss.losses else outputs
 
     def process(self, inputs):
         imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
