@@ -10,7 +10,7 @@ from datetime import datetime
 # enable importing from current dir when running with Blender
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from defmo import render, utils
+from defmo import render, ZipLoader
 
 # print to stderr when suppressing Blender output
 from defmo.utils import print_stderr as print
@@ -26,8 +26,8 @@ n_sequences = int(args[0]) if len(args) else 5
 out_dir = args[1] if len(args) > 1 else "."
 
 print("Loading datasets...")
-objs = utils.ZipLoader("data/ShapeNetCore.v2.zip", "*.obj", balance_subdirs=True)
-texs = utils.ZipLoader("data/textures.zip", "*/textures_train/*.jpg")
+objs = ZipLoader("data/ShapeNetCore.v2.zip", "*.obj", balance_subdirs=True)
+texs = ZipLoader("data/textures.zip", "*/textures_train/*.jpg")
 
 p = dict(
     resolution=(320, 240),

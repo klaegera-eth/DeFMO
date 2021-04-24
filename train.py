@@ -1,10 +1,8 @@
 import sys
 import torch
 
-from defmo.train import Trainer
-from defmo.dataset import ZipDataset
-from defmo.utils import ZipLoader
-from defmo.models import Model, Loss
+from defmo import Trainer, ZipDataset, ZipLoader
+from defmo.model import Model, Loss
 
 
 if __name__ == "__main__":
