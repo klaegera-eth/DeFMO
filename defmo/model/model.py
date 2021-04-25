@@ -18,15 +18,14 @@ class Model(nn.Module):
         if checkpoint is not None:
             self.load_state_dict(checkpoint["state"])
 
-    def forward(self, inputs):
-        outputs = self.process(inputs)
-        return self.loss(inputs, outputs) if self.loss.losses else outputs
-
-    def process(self, inputs):
+    def forward(self, inputs, apply_loss=True):
         imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
         latent = self.encoder(torch.cat(imgs, 1))
         renders = self.renderer(latent, n_frames=inputs["frames"].shape[1])
-        return dict(latent=latent, renders=renders)
+        outputs = dict(latent=latent, renders=renders)
+        if apply_loss:
+            outputs = self.loss(inputs, outputs)
+        return outputs
 
     def get_state(self):
         return dict(models=self.models, state=self.state_dict())
