@@ -15,11 +15,14 @@ class Loss(nn.Module):
     def record(self, batch):
         if self.training != self.was_training:
             self.was_training = self.training
-            for loss in self.losses:
-                loss.history.clear()
+            self.clear_record()
         for row in batch:
             for loss, val in zip(self.losses, row):
                 loss.history.append(val.item())
+
+    def clear_record(self):
+        for loss in self.losses:
+            loss.history.clear()
 
     def mean(self, most_recent=None):
         if not self.losses:
