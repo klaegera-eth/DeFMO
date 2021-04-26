@@ -26,14 +26,14 @@ class Trainer:
         self.optimizer = Optimizer(model.parameters(), lr=lr)
         self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
 
-        self.epoch = 0
-        self.best_loss = float("inf")
-
         if checkpoint is not None:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             self.scheduler.load_state_dict(checkpoint["scheduler"])
             self.epoch = checkpoint["epochs"]
-            self.best_loss = checkpoint["loss"]
+            self.loss = checkpoint["loss"]
+        else:
+            self.epoch = 0
+            self.loss = {"train": [], "valid": []}
 
     def train(self, datasets, epochs, batch_size, benchmark=False):
         torch.backends.cudnn.benchmark = benchmark
@@ -55,7 +55,7 @@ class Trainer:
             self.epoch += 1
             self.model_dp.train()
 
-            ds = datasets["training"]
+            ds = datasets["train"]
             for batch, inputs in enumerate(ds):
                 losses = self.model_dp(inputs)
                 self.model.loss.record(losses)
@@ -70,12 +70,13 @@ class Trainer:
                     self.model.loss,
                 )
 
+            self.loss["train"].append(self.model.loss.mean(1000))
             self.scheduler.step()
 
             with torch.no_grad():
                 self.model_dp.eval()
 
-                ds = datasets["validation"]
+                ds = datasets["valid"]
                 for batch, inputs in enumerate(ds):
                     losses = self.model_dp(inputs)
                     self.model.loss.record(losses)
@@ -86,9 +87,9 @@ class Trainer:
                     self.model.loss,
                 )
 
-                loss_val = self.model.loss.mean()
-                if loss_val < self.best_loss:
-                    self.best_loss = loss_val
+                self.loss["valid"].append(self.model.loss.mean())
+
+                if self.loss["valid"][-1] == min(self.loss["valid"]):
                     self.save("checkpoint_best.pt")
 
         self.save("checkpoint_end.pt")
@@ -100,7 +101,7 @@ class Trainer:
                 "model": self.model.get_state(),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
-                "loss": self.best_loss,
+                "loss": self.loss,
                 "epochs": self.epoch,
             },
             filename,
