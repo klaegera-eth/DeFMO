@@ -4,6 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
+from torch.nn.modules.batchnorm import SyncBatchNorm
+
 from torch.optim import Adam as Optimizer
 from torch.optim.lr_scheduler import StepLR as Scheduler
 
@@ -23,7 +25,9 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.io = torch.distributed.get_rank() == 0
 
-        self.model = model.to(self.device)
+        self.model = SyncBatchNorm.convert_sync_batchnorm(model)
+
+        self.model = self.model.to(self.device)
         self.model_dp = nn.parallel.DistributedDataParallel(model)
         self.optimizer = Optimizer(model.parameters(), lr=lr)
         self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
