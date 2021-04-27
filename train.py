@@ -5,8 +5,7 @@ from defmo import Trainer, ZipDataset, ZipLoader
 from defmo.model import Model, Loss
 
 
-if __name__ == "__main__":
-
+def train():
     datasets = {
         "train": ZipDataset(
             "data/fmo_3_24_v1.zip",
@@ -36,3 +35,23 @@ if __name__ == "__main__":
         print("Loaded default model")
 
     trainer.train(datasets, epochs=1, batch_size=3)
+
+
+if __name__ == "__main__":
+    if "RANK" not in os.environ:
+        # launcher process
+        import torch.distributed.launch
+
+        sys.argv = [
+            "<launcher>",
+            "--use_env",
+            "--nproc_per_node",
+            str(torch.cuda.device_count()),
+        ] + sys.argv
+        torch.distributed.launch.main()
+    else:
+        # worker process
+        backend = "nccl" if torch.distributed.is_nccl_available() else "gloo"
+        torch.distributed.init_process_group(backend)
+        with torch.cuda.device(torch.distributed.get_rank()):
+            train()
