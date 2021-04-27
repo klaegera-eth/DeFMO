@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 from torch.optim import Adam as Optimizer
 from torch.optim.lr_scheduler import StepLR as Scheduler
@@ -41,7 +42,10 @@ class Trainer:
 
         datasets = {
             k: DataLoader(
-                ds, batch_size, shuffle=True, num_workers=torch.get_num_threads()
+                ds,
+                batch_size,
+                sampler=DistributedSampler(ds),
+                num_workers=torch.get_num_threads(),
             )
             for k, ds in datasets.items()
         }
@@ -57,6 +61,8 @@ class Trainer:
         epochs += self.epoch
         for _ in range(self.epoch, epochs):
             self.epoch += 1
+            for ds in datasets.values():
+                ds.sampler.set_epoch(self.epoch)
             self.model_dp.train()
 
             ds = datasets["train"]
