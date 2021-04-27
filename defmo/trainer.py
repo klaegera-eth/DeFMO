@@ -20,6 +20,7 @@ class Trainer:
         torch.multiprocessing.set_start_method("spawn", force=True)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.io = torch.distributed.get_rank() == 0
 
         self.model = model.to(self.device)
         self.model_dp = nn.parallel.DistributedDataParallel(model)
@@ -45,11 +46,14 @@ class Trainer:
             for k, ds in datasets.items()
         }
 
-        print(
-            f"Begin training ({self.device}) -",
-            f"{torch.get_num_threads()} CPUs,",
-            f"{torch.cuda.device_count()} GPUs",
-        )
+        if self.io:
+            print(
+                f"Begin training ({self.device}) - "
+                f"{torch.distributed.get_world_size()} processes x ( "
+                f"{torch.get_num_threads()} CPUs, "
+                f"{torch.cuda.device_count()} GPUs )"
+            )
+
         epochs += self.epoch
         for _ in range(self.epoch, epochs):
             self.epoch += 1
@@ -64,11 +68,12 @@ class Trainer:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
-                print(
-                    f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
-                    f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
-                    self.model.loss,
-                )
+                if self.io:
+                    print(
+                        f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
+                        f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
+                        self.model.loss,
+                    )
 
             self.loss["train"].append(self.model.loss.mean(1000))
             self.scheduler.step()
@@ -81,29 +86,30 @@ class Trainer:
                     losses = self.model_dp(inputs)
                     self.model.loss.record(losses)
 
-                print(
-                    f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
-                    f"Validation ({len(ds)} batches)",
-                    self.model.loss,
-                )
+                if self.io:
+                    print(
+                        f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
+                        f"Validation ({len(ds)} batches)",
+                        self.model.loss,
+                    )
 
                 self.loss["valid"].append(self.model.loss.mean())
 
-                if self.loss["valid"][-1] == min(self.loss["valid"]):
+                if self.io and self.loss["valid"][-1] == min(self.loss["valid"]):
                     self.save("checkpoint_best.pt")
 
-        self.save("checkpoint_end.pt")
+        if self.io:
+            self.save("checkpoint_end.pt")
 
     def save(self, filename):
-        if not torch.distributed.get_rank():
-            print("Saving", filename)
-            torch.save(
-                {
-                    "model": self.model.get_state(),
-                    "optimizer": self.optimizer.state_dict(),
-                    "scheduler": self.scheduler.state_dict(),
-                    "loss": self.loss,
-                    "epochs": self.epoch,
-                },
-                filename,
-            )
+        print("Saving", filename)
+        torch.save(
+            {
+                "model": self.model.get_state(),
+                "optimizer": self.optimizer.state_dict(),
+                "scheduler": self.scheduler.state_dict(),
+                "loss": self.loss,
+                "epochs": self.epoch,
+            },
+            filename,
+        )
