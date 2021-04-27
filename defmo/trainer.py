@@ -56,60 +56,58 @@ class Trainer:
 
         if self.io:
             print(
-                f"Begin training ({self.device}) - "
-                f"{torch.distributed.get_world_size()} processes x ( "
-                f"{torch.get_num_threads()} CPUs, "
-                f"{torch.cuda.device_count()} GPUs )"
+                f"Begin training ({self.device}) -",
+                f"{torch.distributed.get_world_size()} processes x (",
+                f"{torch.get_num_threads()} CPUs,",
+                f"{torch.cuda.device_count()} GPUs )",
             )
 
-        epochs += self.epoch
-        for _ in range(self.epoch, epochs):
+        for _ in range(epochs):
             self.epoch += 1
             for ds in datasets.values():
                 ds.sampler.set_epoch(self.epoch)
+
             self.model_dp.train()
+            self.process(datasets["train"], backward=True, verbose=self.io)
+            self.loss["train"].append(self.model.loss.mean(most_recent=1000))
 
-            ds = datasets["train"]
-            for batch, inputs in enumerate(ds):
-                losses = self.model_dp(inputs)
-                self.model.loss.record(losses)
-
-                losses.mean().backward()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-
-                if self.io:
-                    print(
-                        f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
-                        f"Batch {batch + 1:0{len(str(len(ds)))}}/{len(ds)}",
-                        self.model.loss,
-                    )
-
-            self.loss["train"].append(self.model.loss.mean(1000))
             self.scheduler.step()
 
             with torch.no_grad():
-                self.model_dp.eval()
 
-                ds = datasets["valid"]
-                for batch, inputs in enumerate(ds):
-                    losses = self.model_dp(inputs)
-                    self.model.loss.record(losses)
+                self.model_dp.eval()
+                self.process(datasets["valid"], backward=False)
+                self.loss["valid"].append(self.model.loss.mean())
 
                 if self.io:
                     print(
-                        f"Epoch {self.epoch:0{len(str(epochs))}}/{epochs}",
+                        f"Epoch {self.epoch:02}",
                         f"Validation ({len(ds)} batches)",
                         self.model.loss,
                     )
 
-                self.loss["valid"].append(self.model.loss.mean())
-
-                if self.io and self.loss["valid"][-1] == min(self.loss["valid"]):
-                    self.save("checkpoint_best.pt")
+                    if self.loss["valid"][-1] == min(self.loss["valid"]):
+                        self.save("checkpoint_best.pt")
 
         if self.io:
             self.save("checkpoint_end.pt")
+
+    def process(self, dataset, backward, verbose=False):
+        for batch, inputs in enumerate(dataset):
+            losses = self.model_dp(inputs)
+            self.model.loss.record(losses)
+
+            if backward:
+                self.optimizer.zero_grad()
+                losses.mean().backward()
+                self.optimizer.step()
+
+            if verbose:
+                print(
+                    f"Epoch {self.epoch:02}",
+                    f"Batch {batch + 1:0{len(str(len(dataset)))}}/{len(dataset)}",
+                    self.model.loss,
+                )
 
     def save(self, filename):
         print("Saving", filename)
