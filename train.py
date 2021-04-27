@@ -38,8 +38,10 @@ def train():
 
 
 if __name__ == "__main__":
+
     if "RANK" not in os.environ:
         # launcher process
+
         import torch.distributed.launch
 
         sys.argv = [
@@ -48,10 +50,14 @@ if __name__ == "__main__":
             "--nproc_per_node",
             str(torch.cuda.device_count()),
         ] + sys.argv
+
         torch.distributed.launch.main()
+
     else:
         # worker process
+
         backend = "nccl" if torch.distributed.is_nccl_available() else "gloo"
         torch.distributed.init_process_group(backend)
-        with torch.cuda.device(torch.distributed.get_rank()):
-            train()
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(torch.distributed.get_rank())
+
+        train()
