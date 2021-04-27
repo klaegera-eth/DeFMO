@@ -21,8 +21,8 @@ class Trainer:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = model
-        self.model_dp = nn.DataParallel(model).to(self.device)
+        self.model = model.to(self.device)
+        self.model_dp = nn.parallel.DistributedDataParallel(model)
         self.optimizer = Optimizer(model.parameters(), lr=lr)
         self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
 
@@ -95,14 +95,15 @@ class Trainer:
         self.save("checkpoint_end.pt")
 
     def save(self, filename):
-        print("Saving", filename)
-        torch.save(
-            {
-                "model": self.model.get_state(),
-                "optimizer": self.optimizer.state_dict(),
-                "scheduler": self.scheduler.state_dict(),
-                "loss": self.loss,
-                "epochs": self.epoch,
-            },
-            filename,
-        )
+        if not torch.distributed.get_rank():
+            print("Saving", filename)
+            torch.save(
+                {
+                    "model": self.model.get_state(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "loss": self.loss,
+                    "epochs": self.epoch,
+                },
+                filename,
+            )
