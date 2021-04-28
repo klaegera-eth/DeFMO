@@ -28,11 +28,9 @@ def train():
         chkp = torch.load(sys.argv[1], map_location="cpu")
         model = Model(losses, checkpoint=chkp["model"])
         trainer = Trainer(model, checkpoint=chkp)
-        print(f"Loaded: {chkp['epochs']} epochs, {chkp['loss']['valid'][-1]:.5f} loss")
     else:
         model = Model(losses, encoder="v2", renderer="resnet")
         trainer = Trainer(model)
-        print("Loaded default model")
 
     trainer.train(datasets, epochs=1, batch_size=3)
 
