@@ -109,7 +109,8 @@ class Trainer:
         print("Saving", filename)
         torch.save(
             {
-                "model": self.model.state_dict(),
+                "models": self.model.models,
+                "model_state": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
                 "loss": self.loss,

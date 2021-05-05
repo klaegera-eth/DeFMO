@@ -19,27 +19,29 @@ def train():
         ),
     }
 
-    _, name, epochs = sys.argv
-    checkpoint = (
-        torch.load(name + ".pt", map_location="cpu")
-        if os.path.isfile(name + ".pt")
-        else None
-    )
-
-    model = Model(
+    models = dict(
         encoder="v2",
         renderer="resnet",
-        losses=[
-            Loss.Supervised(),
-            # Loss.TemporalConsistency(padding=0.1),
-        ],
     )
-    if checkpoint:
-        model.load_state_dict(checkpoint["model"])
+    losses = [
+        Loss.Supervised(),
+        # Loss.TemporalConsistency(padding=0.1),
+    ]
+
+    _, name, epochs = sys.argv
+
+    chkpt = None
+    if os.path.isfile(name + ".pt"):
+        chkpt = torch.load(name + ".pt", map_location="cpu")
+        models = chkpt["models"]
+
+    model = Model(**models, losses=losses)
+    if chkpt:
+        model.load_state_dict(chkpt["model_state"])
 
     trainer = Trainer(name, model)
-    if checkpoint:
-        trainer.load(checkpoint)
+    if chkpt:
+        trainer.load(chkpt)
 
     trainer.train(datasets, epochs=int(epochs), batch_size=4, benchmark=False)
 

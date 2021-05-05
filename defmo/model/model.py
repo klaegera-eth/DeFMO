@@ -22,12 +22,3 @@ class Model(nn.Module):
         if apply_loss:
             outputs = self.loss(inputs, outputs)
         return outputs
-
-    def state_dict(self, *args, **kwargs):
-        return {"models": self.models, "state": super().state_dict(*args, **kwargs)}
-
-    def load_state_dict(self, state_dict, strict=True):
-        self.models = state_dict["models"]
-        self.encoder = Encoder(self.models["encoder"])
-        self.renderer = Renderer(self.models["renderer"])
-        super().load_state_dict(state_dict["state"], strict)
