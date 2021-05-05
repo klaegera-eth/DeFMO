@@ -13,6 +13,7 @@ from torch.optim.lr_scheduler import StepLR as Scheduler
 class Trainer:
     def __init__(
         self,
+        name,
         model,
         lr=0.001,
         lr_steps=20,
@@ -25,11 +26,14 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.io = torch.distributed.get_rank() == 0
 
-        self.model = SyncBatchNorm.convert_sync_batchnorm(model)
+        self.name = name
+        self.model = model
 
+        self.model = SyncBatchNorm.convert_sync_batchnorm(self.model)
         self.model = self.model.to(self.device)
-        self.model_dp = nn.parallel.DistributedDataParallel(model)
-        self.optimizer = Optimizer(model.parameters(), lr=lr)
+        self.model_dp = nn.parallel.DistributedDataParallel(self.model)
+
+        self.optimizer = Optimizer(self.model.parameters(), lr=lr)
         self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
 
         if checkpoint is not None:
@@ -86,11 +90,10 @@ class Trainer:
                         self.model.loss,
                     )
 
-                    if self.loss["valid"][-1] == min(self.loss["valid"]):
-                        self.save("checkpoint_best.pt")
+                    self.save()
 
-        if self.io:
-            self.save("checkpoint_end.pt")
+                    if self.loss["valid"][-1] == min(self.loss["valid"]):
+                        self.save(suffix="_best")
 
     def process(self, dataset, backward, verbose=False):
         for batch, inputs in enumerate(dataset):
@@ -109,7 +112,8 @@ class Trainer:
                     self.model.loss,
                 )
 
-    def save(self, filename):
+    def save(self, suffix=""):
+        filename = f"{self.name}{suffix}.pt"
         print("Saving", filename)
         torch.save(
             {

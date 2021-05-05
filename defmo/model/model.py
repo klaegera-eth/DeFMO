@@ -11,6 +11,7 @@ class Model(nn.Module):
         super().__init__()
         self.models = dict(encoder=encoder, renderer=renderer)
         if checkpoint is not None:
+            checkpoint = checkpoint["model"]
             self.models = checkpoint["models"]
         self.encoder = Encoder(self.models["encoder"])
         self.renderer = Renderer(self.models["renderer"])

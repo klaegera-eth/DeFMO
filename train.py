@@ -24,21 +24,24 @@ def train():
         # Loss.TemporalConsistency(padding=0.1),
     ]
 
-    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
-        chkp = torch.load(sys.argv[1], map_location="cpu")
-        model = Model(losses, checkpoint=chkp["model"])
-        trainer = Trainer(model, checkpoint=chkp)
-    else:
-        model = Model(losses, encoder="v2", renderer="resnet")
-        trainer = Trainer(model)
+    _, name, epochs = sys.argv
 
-    trainer.train(datasets, epochs=1, batch_size=3)
+    chkp = None
+    if os.path.isfile(name + ".pt"):
+        chkp = torch.load(name + ".pt", map_location="cpu")
+
+    model = Model(losses, encoder="v2", renderer="resnet", checkpoint=chkp)
+    trainer = Trainer(name, model, checkpoint=chkp)
+    trainer.train(datasets, epochs=int(epochs), batch_size=4, benchmark=False)
 
 
 if __name__ == "__main__":
 
     if "RANK" not in os.environ:
         # launcher process
+
+        if len(sys.argv) != 3:
+            sys.exit("usage: train.py <name> <epochs>")
 
         import torch.distributed.launch
 
