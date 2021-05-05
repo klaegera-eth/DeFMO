@@ -7,17 +7,12 @@ from .loss import Loss
 
 
 class Model(nn.Module):
-    def __init__(self, losses=[], encoder=None, renderer=None, checkpoint=None):
+    def __init__(self, encoder, renderer, losses=[]):
         super().__init__()
-        self.models = dict(encoder=encoder, renderer=renderer)
-        if checkpoint is not None:
-            checkpoint = checkpoint["model"]
-            self.models = checkpoint["models"]
-        self.encoder = Encoder(self.models["encoder"])
-        self.renderer = Renderer(self.models["renderer"])
+        self.models = {"encoder": encoder, "renderer": renderer}
+        self.encoder = Encoder(encoder)
+        self.renderer = Renderer(renderer)
         self.loss = Loss(losses)
-        if checkpoint is not None:
-            self.load_state_dict(checkpoint["state"])
 
     def forward(self, inputs, apply_loss=True):
         imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
@@ -28,5 +23,11 @@ class Model(nn.Module):
             outputs = self.loss(inputs, outputs)
         return outputs
 
-    def get_state(self):
-        return dict(models=self.models, state=self.state_dict())
+    def state_dict(self, *args, **kwargs):
+        return {"models": self.models, "state": super().state_dict(*args, **kwargs)}
+
+    def load_state_dict(self, state_dict, strict=True):
+        self.models = state_dict["models"]
+        self.encoder = Encoder(self.models["encoder"])
+        self.renderer = Renderer(self.models["renderer"])
+        super().load_state_dict(state_dict["state"], strict)

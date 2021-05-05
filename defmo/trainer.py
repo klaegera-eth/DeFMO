@@ -11,15 +11,7 @@ from torch.optim.lr_scheduler import StepLR as Scheduler
 
 
 class Trainer:
-    def __init__(
-        self,
-        name,
-        model,
-        lr=0.001,
-        lr_steps=20,
-        lr_decay=0.8,
-        checkpoint=None,
-    ):
+    def __init__(self, name, model, lr=0.001, lr_steps=20, lr_decay=0.8):
         # required for correct operation of torch multiprocessing
         torch.multiprocessing.set_start_method("spawn", force=True)
 
@@ -36,14 +28,14 @@ class Trainer:
         self.optimizer = Optimizer(self.model.parameters(), lr=lr)
         self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
 
-        if checkpoint is not None:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-            self.scheduler.load_state_dict(checkpoint["scheduler"])
-            self.epoch = checkpoint["epochs"]
-            self.loss = checkpoint["loss"]
-        else:
-            self.epoch = 0
-            self.loss = {"train": [], "valid": []}
+        self.epoch = 0
+        self.loss = {"train": [], "valid": []}
+
+    def load(self, checkpoint):
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.epoch = checkpoint["epochs"]
+        self.loss = checkpoint["loss"]
 
     def train(self, datasets, epochs, batch_size, benchmark=False):
         torch.backends.cudnn.benchmark = benchmark
@@ -117,7 +109,7 @@ class Trainer:
         print("Saving", filename)
         torch.save(
             {
-                "model": self.model.get_state(),
+                "model": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
                 "loss": self.loss,
