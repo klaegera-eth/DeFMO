@@ -10,13 +10,14 @@ from datetime import datetime
 # enable importing from current dir when running with Blender
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from defmo import render, ZipLoader
+from defmo.rendering import blender, Frustum
+from defmo.utils import ZipLoader
 
 # print to stderr when suppressing Blender output
-from defmo.utils import print_stderr as print
+from defmo.rendering import print_stderr as print
 
 # restart with Blender if necessary
-args = render.ensure_blender(
+args = blender.ensure_blender(
     r"C:\Program Files\Blender Foundation\Blender 2.91\blender.exe",
     suppress_output=True,
 )
@@ -53,8 +54,8 @@ def check_discard(out):
                 return True
 
 
-render.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
-frustum = render.Frustum(p["z_range"], p["resolution"])
+blender.init(p["n_frames"], p["resolution"], env_light=p["env_light"])
+frustum = Frustum(p["z_range"], p["resolution"])
 
 time = datetime.now()
 filename = time.strftime(
@@ -79,7 +80,7 @@ with zipfile.ZipFile(os.path.join(out_dir, filename), "w") as zip:
 
             with io.BytesIO() as out:
                 with objs.as_tempfile(obj) as objf, texs.as_tempfile(tex) as texf:
-                    render.render(
+                    blender.render(
                         out, objf, texf, loc, (rot_start, rot_end), p["blurs"]
                     )
 

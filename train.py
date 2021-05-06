@@ -1,8 +1,9 @@
 import sys, os
 import torch
 
-from defmo import Trainer, ZipDataset, ZipLoader
-from defmo.model import Model, Loss
+from defmo.training import Trainer, ZipDataset
+from defmo.training.modules import Model, Loss
+from defmo.utils import ZipLoader
 
 
 def train():

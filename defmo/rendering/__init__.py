@@ -1,5 +1,8 @@
 import sys
 
+from . import blender
+from .frustum import Frustum
+
 
 def print_stderr(*args, **kwargs):
     if "file" not in kwargs:
