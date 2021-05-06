@@ -7,11 +7,11 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.modules.batchnorm import SyncBatchNorm
 
 from torch.optim import Adam as Optimizer
-from torch.optim.lr_scheduler import StepLR as Scheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau as Scheduler
 
 
 class Trainer:
-    def __init__(self, name, model, lr=0.001, lr_steps=20, lr_decay=0.8):
+    def __init__(self, name, model):
         # required for correct operation of torch multiprocessing
         torch.multiprocessing.set_start_method("spawn", force=True)
 
@@ -25,8 +25,8 @@ class Trainer:
         self.model = self.model.to(self.device)
         self.model_dp = nn.parallel.DistributedDataParallel(self.model)
 
-        self.optimizer = Optimizer(self.model.parameters(), lr=lr)
-        self.scheduler = Scheduler(self.optimizer, lr_steps, lr_decay)
+        self.optimizer = Optimizer(self.model.parameters())
+        self.scheduler = Scheduler(self.optimizer, verbose=self.io)
 
         self.epoch = 0
         self.loss = {"train": [], "valid": []}
@@ -34,6 +34,7 @@ class Trainer:
     def load(self, checkpoint):
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         self.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.scheduler.verbose = self.io
         self.epoch = checkpoint["epochs"]
         self.loss = checkpoint["loss"]
 
@@ -67,13 +68,13 @@ class Trainer:
             self.process(datasets["train"], backward=True, verbose=self.io)
             self.loss["train"].append(self.model.loss.mean(most_recent=1000))
 
-            self.scheduler.step()
-
             with torch.no_grad():
 
                 self.model_dp.eval()
                 self.process(datasets["valid"], backward=False)
                 self.loss["valid"].append(self.model.loss.mean())
+
+                self.scheduler.step(self.loss["valid"][-1])
 
                 if self.io:
                     print(
