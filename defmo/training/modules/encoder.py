@@ -12,6 +12,32 @@ class Encoder(nn.Module):
         return self.model(inputs)
 
     def models(_, name):
+        def _resnet_gn():
+            from .utils import group_norm
+
+            model = resnet50(norm_layer=group_norm())
+            model.load_state_dict(
+                resnet50(pretrained=True).state_dict(),
+                strict=False,
+            )
+            return model
+
+        def resnet_gn_nomaxpool():
+            resnet = _resnet_gn()
+
+            conv = nn.Conv2d(6, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            conv.load_state_dict({"weight": resnet.conv1.weight.repeat(1, 2, 1, 1)})
+
+            return nn.Sequential(
+                conv,
+                resnet.bn1,
+                resnet.relu,
+                resnet.layer1,
+                resnet.layer2,
+                resnet.layer3,
+                resnet.layer4,
+            )
+
         def v1():
             model = resnet50(pretrained=True)
             modelc = nn.Sequential(*list(model.children())[:-2])

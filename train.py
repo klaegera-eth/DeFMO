@@ -21,8 +21,8 @@ def train():
     }
 
     models = dict(
-        encoder="v2",
-        renderer="resnet",
+        encoder="resnet_gn_nomaxpool",
+        renderer="resnet_gn",
     )
     losses = [
         Loss.Supervised(),

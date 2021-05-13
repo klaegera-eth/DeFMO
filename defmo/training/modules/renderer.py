@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from torchvision.models.resnet import Bottleneck
+from .utils import group_norm
 
 
 class Renderer(nn.Module):
@@ -17,6 +18,25 @@ class Renderer(nn.Module):
         return renders
 
     def models(_, name):
+        def resnet_gn():
+            return nn.Sequential(
+                nn.Conv2d(2049, 1024, kernel_size=3, padding=1, bias=False),
+                nn.GroupNorm(32, 1024),
+                nn.ReLU(inplace=True),
+                Bottleneck(1024, 256, norm_layer=group_norm()),
+                nn.PixelShuffle(2),
+                Bottleneck(256, 64, norm_layer=group_norm(8)),
+                nn.PixelShuffle(2),
+                Bottleneck(64, 16, norm_layer=group_norm(4)),
+                nn.PixelShuffle(2),
+                nn.Conv2d(16, 16, kernel_size=3, padding=1, bias=False),
+                nn.PixelShuffle(2),
+                nn.Conv2d(4, 4, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(4, 4, kernel_size=3, padding=1),
+                nn.Sigmoid(),
+            )
+
         def resnet():
             return nn.Sequential(
                 nn.Conv2d(2049, 1024, kernel_size=3, stride=1, padding=1, bias=False),
