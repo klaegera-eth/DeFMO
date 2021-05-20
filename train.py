@@ -1,23 +1,35 @@
 import sys, os
 import torch
 
-from defmo.training import Trainer, ZipDataset
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
+
+from defmo.training import Trainer
+from defmo.training.data import PairDataset
 from defmo.training.modules import Model, Loss
-from defmo.utils import ZipLoader
+from defmo.utils import FmoLoader, ZipLoader
 
 
 def train():
     datasets = {
-        "train": ZipDataset(
-            "data/fmo_3_24_v1.zip",
+        "train": PairDataset(
+            FmoLoader("data/fmo_3_24_v1.zip", item_range=(0, 0.9)),
             ZipLoader("data/vot2018.zip", balance_subdirs=True),
-            item_range=(0, 0.9),
         ),
-        "valid": ZipDataset(
-            "data/fmo_3_24_v1.zip",
+        "valid": PairDataset(
+            FmoLoader("data/fmo_3_24_v1.zip", item_range=(0.9, 1)),
             ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
-            item_range=(0.9, 1),
         ),
+    }
+
+    dataloaders = {
+        k: DataLoader(
+            ds,
+            batch_size=4,
+            sampler=DistributedSampler(ds),
+            num_workers=torch.get_num_threads(),
+        )
+        for k, ds in datasets.items()
     }
 
     models = dict(
@@ -44,7 +56,7 @@ def train():
     if chkpt:
         trainer.load(chkpt)
 
-    trainer.train(datasets, epochs=int(epochs), batch_size=4, benchmark=False)
+    trainer.train(dataloaders, epochs=int(epochs))
 
 
 if __name__ == "__main__":

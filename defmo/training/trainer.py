@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 
-from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
-
 from torch.nn.modules.batchnorm import SyncBatchNorm
 
 from torch.optim import Adam as Optimizer
@@ -38,19 +35,7 @@ class Trainer:
         self.epoch = checkpoint["epochs"]
         self.loss = checkpoint["loss"]
 
-    def train(self, datasets, epochs, batch_size, benchmark=False):
-        torch.backends.cudnn.benchmark = benchmark
-
-        datasets = {
-            k: DataLoader(
-                ds,
-                batch_size,
-                sampler=DistributedSampler(ds),
-                num_workers=torch.get_num_threads(),
-            )
-            for k, ds in datasets.items()
-        }
-
+    def train(self, data, epochs):
         if self.io:
             print(
                 f"Begin training ({self.device}) -",
@@ -61,35 +46,31 @@ class Trainer:
 
         for _ in range(epochs):
             self.epoch += 1
-            for ds in datasets.values():
+            for ds in data.values():
                 ds.sampler.set_epoch(self.epoch)
 
             self.model_dp.train()
-            self.process(datasets["train"], backward=True, verbose=self.io)
+            self.process(data["train"], backward=True, verbose=self.io)
             self.loss["train"].append(self.model.loss.mean(most_recent=1000))
 
             with torch.no_grad():
 
                 self.model_dp.eval()
-                self.process(datasets["valid"], backward=False)
+                self.process(data["valid"], backward=False)
                 self.loss["valid"].append(self.model.loss.mean())
 
                 self.scheduler.step(self.loss["valid"][-1])
 
                 if self.io:
-                    print(
-                        f"Epoch {self.epoch:02}",
-                        f"Validation ({len(ds)} batches)",
-                        self.model.loss,
-                    )
+                    print(f"Epoch {self.epoch:02} Validation {self.model.loss}")
 
                     self.save()
 
                     if self.loss["valid"][-1] == min(self.loss["valid"]):
                         self.save(suffix="_best")
 
-    def process(self, dataset, backward, verbose=False):
-        for batch, inputs in enumerate(dataset):
+    def process(self, data, backward, verbose=False):
+        for batch, inputs in enumerate(data):
             losses = self.model_dp(inputs)
             self.model.loss.record(losses)
 
@@ -101,7 +82,7 @@ class Trainer:
             if verbose:
                 print(
                     f"Epoch {self.epoch:02}",
-                    f"Batch {batch + 1:0{len(str(len(dataset)))}}/{len(dataset)}",
+                    f"Batch {batch + 1:0{len(str(len(data)))}}/{len(data)}",
                     self.model.loss,
                 )
 
