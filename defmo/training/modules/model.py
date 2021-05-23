@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 from .encoder import Encoder
@@ -15,8 +14,7 @@ class Model(nn.Module):
         self.loss = Loss(losses)
 
     def forward(self, inputs, apply_loss=True):
-        imgs = inputs["imgs"][:, 1], inputs["imgs"][:, 2]
-        latent = self.encoder(torch.cat(imgs, 1))
+        latent = self.encoder(inputs["imgs"])
         renders = self.renderer(latent, n_frames=inputs["frames"].shape[1])
         outputs = dict(latent=latent, renders=renders)
         if apply_loss:
