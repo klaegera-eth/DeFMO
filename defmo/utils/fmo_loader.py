@@ -4,13 +4,15 @@ from PIL import Image, ImageSequence
 
 
 class FmoLoader:
-    def __init__(self, zip, item_range=(0, 1)):
+    def __init__(self, zip, blurs=None, item_range=(0, 1)):
         # save args for pickling
         self._args = locals()
         del self._args["self"]
 
         self._zip = zipfile.ZipFile(zip)
         self.params = json.loads(self._zip.comment)
+
+        self.blurs = blurs
 
         start, end = item_range
         if end > 1:
@@ -33,4 +35,6 @@ class FmoLoader:
             seq = ImageSequence.all_frames(Image.open(f))
             n_blurs = len(self.params["blurs"])
             blurs, frames = seq[:n_blurs], seq[n_blurs:]
+            if self.blurs:
+                blurs = [blurs[i] for i in self.blurs]
             return blurs, frames

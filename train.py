@@ -5,20 +5,24 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from defmo.training import Trainer
-from defmo.training.data import PairDataset
+from defmo.training.data import BasicDataset, BackgroundAdder
 from defmo.training.modules import Model, Loss
 from defmo.utils import FmoLoader, ZipLoader
 
 
 def train():
     datasets = {
-        "train": PairDataset(
-            FmoLoader("data/fmo_3_24_v1.zip", item_range=(0, 0.9)),
-            ZipLoader("data/vot2018.zip", balance_subdirs=True),
+        "train": BasicDataset(
+            FmoLoader("data/fmo_3_24_v1.zip", blurs=[1, 2], item_range=(0, 0.9)),
+            BackgroundAdder(
+                ZipLoader("data/vot2018.zip", balance_subdirs=True),
+            ),
         ),
-        "valid": PairDataset(
-            FmoLoader("data/fmo_3_24_v1.zip", item_range=(0.9, 1)),
-            ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
+        "valid": BasicDataset(
+            FmoLoader("data/fmo_3_24_v1.zip", blurs=[1, 2], item_range=(0.9, 1)),
+            BackgroundAdder(
+                ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
+            ),
         ),
     }
 

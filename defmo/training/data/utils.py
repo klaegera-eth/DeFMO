@@ -1,6 +1,6 @@
+import torch
 import numpy as np
 from PIL import Image
-
 
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
@@ -17,3 +17,7 @@ def alpha_composite(bg, *layers, mode="RGB"):
 def mean_diff(img1, img2, mask=None):
     diff = abs(np.array(img1, dtype=int) - img2)
     return np.mean(diff[mask] if mask is not None else diff)
+
+
+def to_tensor_stack(imgs):
+    return torch.stack([to_tensor(img) for img in imgs])
