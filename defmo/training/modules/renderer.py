@@ -6,18 +6,18 @@ from .utils import group_norm
 
 
 class Renderer(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, **kwargs):
         super().__init__()
-        self.model = self.models(model)
+        self.model = self.models(model, **kwargs)
 
     def forward(self, latent, n_frames):
         b, _, w, h = latent.shape
-        ts = torch.linspace(0, 1, n_frames).to(latent.device)
+        ts = torch.linspace(0, 1, n_frames, device=latent.device)
         inputs = [torch.cat((t.repeat(b, 1, w, h), latent), 1) for t in ts]
         renders = torch.stack([self.model(i) for i in inputs], 1)
         return renders
 
-    def models(_, name):
+    def models(_, name, **kwargs):
         def resnet_gn():
             return nn.Sequential(
                 nn.Conv2d(2049, 1024, kernel_size=3, padding=1, bias=False),
@@ -108,4 +108,7 @@ class Renderer(nn.Module):
                 nn.Sigmoid(),
             )
 
-        return locals()[name]()
+        try:
+            return locals()[name](**kwargs)
+        except KeyError:
+            raise ValueError(f'Renderer model "{name}" not found.')

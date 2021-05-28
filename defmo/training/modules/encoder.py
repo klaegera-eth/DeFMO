@@ -4,14 +4,14 @@ from torchvision.models import resnet50
 
 
 class Encoder(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, **kwargs):
         super().__init__()
-        self.model = self.models(model)
+        self.model = self.models(model, **kwargs)
 
     def forward(self, inputs):
         return self.model(inputs)
 
-    def models(_, name):
+    def models(_, name, **kwargs):
         def _resnet_norm(norm_layer):
             model = resnet50(norm_layer=norm_layer)
             model.load_state_dict(
@@ -45,7 +45,10 @@ class Encoder(nn.Module):
             resnet = resnet50(pretrained=True)
             return _resnet_nomaxpool(resnet)
 
-        return locals()[name]()
+        try:
+            return locals()[name](**kwargs)
+        except KeyError:
+            raise ValueError(f'Encoder model "{name}" not found.')
 
     class ImgsToChannels(nn.Module):
         def forward(self, imgs):
