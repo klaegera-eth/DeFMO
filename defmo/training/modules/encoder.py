@@ -48,7 +48,7 @@ class Encoder(nn.Module):
         try:
             return locals()[name](**kwargs)
         except KeyError:
-            raise ValueError(f'Encoder model "{name}" not found.')
+            raise ValueError(f"Encoder model '{name}' not found.")
 
     class ImgsToChannels(nn.Module):
         def forward(self, imgs):

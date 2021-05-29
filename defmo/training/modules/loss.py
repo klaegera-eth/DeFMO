@@ -5,63 +5,34 @@ import torch.nn as nn
 class Loss(nn.Module):
     def __init__(self, losses):
         super().__init__()
-        self.losses = losses
-        self.was_training = False
+        self.losses = [
+            loss if isinstance(loss, Loss._BaseLoss) else getattr(Loss, loss)()
+            for loss in losses
+        ]
 
     def forward(self, inputs, outputs):
         losses = [loss(inputs, outputs) for loss in self.losses]
         return torch.stack(losses, 1)
 
-    def record(self, batch):
-        if self.training != self.was_training:
-            self.was_training = self.training
-            self.clear_record()
-        for row in batch:
-            for loss, val in zip(self.losses, row):
-                loss.history.append(val.item())
-
-    def clear_record(self):
-        for loss in self.losses:
-            loss.history.clear()
-
-    def mean(self, most_recent=None):
-        if not self.losses:
-            return 0
-        means = [loss.mean(most_recent) for loss in self.losses]
-        return sum(means) / len(means)
+    def log(self, name, loss, log_fn):
+        with torch.no_grad():
+            for val, cls in zip(loss, self.losses):
+                log_fn(f"{name}/{cls._get_name()}", val / cls.weight)
 
     def __repr__(self):
-        rep = f"{self.__class__.__name__}("
-        if self.losses:
-            losses = ", ".join(repr(l) for l in self.losses)
-            rep += f" {self.mean(100):.5f}/{self.mean():.5f} : {losses} "
-        return rep + ")"
+        return f"{self._get_name()}({', '.join(repr(loss) for loss in self.losses)})"
 
     class _BaseLoss(nn.Module):
         def __init__(self, weight=1):
             super().__init__()
             self.weight = weight
-            self.history = []
 
         def forward(self, inputs, outputs):
             loss = self.loss(inputs, outputs)
             return loss * self.weight
 
-        def mean(self, most_recent=None):
-            history = self.history
-            if most_recent:
-                history = history[-most_recent:]
-            if not history:
-                return 0
-            return sum(history) / len(history)
-
         def __repr__(self):
-            rep = f"{self.__class__.__name__}["
-            if self.weight != 1:
-                rep += f" ({self.weight}x)"
-            if self.history:
-                rep += f" {self.mean(100):.4f}/{self.mean():.4f}"
-            return rep + " ]"
+            return f"{self._get_name()}(weight={self.weight})"
 
     class Supervised(_BaseLoss):
         def loss(self, inputs, outputs):
@@ -93,7 +64,7 @@ class Loss(nn.Module):
             return error.mean(1)
 
     class TemporalConsistency(_BaseLoss):
-        def __init__(self, padding, **kwargs):
+        def __init__(self, padding=0.1, **kwargs):
             super().__init__(**kwargs)
             self.padding = padding
 

@@ -111,4 +111,4 @@ class Renderer(nn.Module):
         try:
             return locals()[name](**kwargs)
         except KeyError:
-            raise ValueError(f'Renderer model "{name}" not found.')
+            raise ValueError(f"Renderer model '{name}' not found.")
