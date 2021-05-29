@@ -1,15 +1,12 @@
 import json
-import zipfile
 from PIL import Image, ImageSequence
+
+from . import ZipFile
 
 
 class FmoLoader:
-    def __init__(self, zip, blurs=None, item_range=(0, 1)):
-        # save args for pickling
-        self._args = locals()
-        del self._args["self"]
-
-        self._zip = zipfile.ZipFile(zip)
+    def __init__(self, zip, item_range=(0, 1), blurs=None):
+        self._zip = ZipFile(zip)
         self.params = json.loads(self._zip.comment)
 
         self.blurs = blurs
@@ -20,12 +17,6 @@ class FmoLoader:
         else:
             length = len(self._zip.filelist)
             self.range = range(int(start * length), int(end * length))
-
-    def __getstate__(self):
-        return self._args
-
-    def __setstate__(self, state):
-        self.__init__(**state)
 
     def __len__(self):
         return len(self.range)

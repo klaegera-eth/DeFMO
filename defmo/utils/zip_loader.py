@@ -3,9 +3,10 @@ import random
 import fnmatch
 import tempfile
 from PIL import Image
-from zipfile import ZipFile
 from collections import defaultdict
 from contextlib import contextmanager
+
+from . import ZipFile
 
 
 class ZipLoader:
@@ -26,14 +27,6 @@ class ZipLoader:
     def _dict_tree(self):
         # needs to be here to allow pickling
         return defaultdict(self._dict_tree)
-
-    def __getstate__(self):
-        return dict(zip=self._zip.filename, names=self.names, dirtree=self._dirtree)
-
-    def __setstate__(self, state):
-        self._zip = ZipFile(state["zip"])
-        self.names = state["names"]
-        self._dirtree = state["dirtree"]
 
     def __len__(self):
         return len(self.names)
