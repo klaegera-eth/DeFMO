@@ -8,13 +8,13 @@ def get_dataset(name, **kwargs):
     def double_blur():
         return FMOData(
             train_data=BasicDataset(
-                FmoLoader("data/fmo_3_24_v1.zip", item_range=(0, 120), blurs=[1, 2]),
+                FmoLoader("data/fmo_3_24_v1.zip", item_range=(0, 0.9), blurs=[1, 2]),
                 BackgroundAdder(
                     ZipLoader("data/vot2018.zip", balance_subdirs=True),
                 ),
             ),
             valid_data=BasicDataset(
-                FmoLoader("data/fmo_3_24_v1.zip", item_range=(120, 360), blurs=[1, 2]),
+                FmoLoader("data/fmo_3_24_v1.zip", item_range=(0.9, 1), blurs=[1, 2]),
                 BackgroundAdder(
                     ZipLoader("data/otb.zip", filter="*.jpg", balance_subdirs=True),
                 ),

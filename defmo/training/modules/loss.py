@@ -14,10 +14,10 @@ class Loss(nn.Module):
         losses = [loss(inputs, outputs) for loss in self.losses]
         return torch.stack(losses, 1)
 
-    def log(self, name, loss, log_fn):
+    def log(self, name, loss, log_fn, **log_fn_kwargs):
         with torch.no_grad():
             for val, cls in zip(loss, self.losses):
-                log_fn(f"{name}/{cls._get_name()}", val / cls.weight)
+                log_fn(f"{name}/{cls._get_name()}", val / cls.weight, **log_fn_kwargs)
 
     def __repr__(self):
         return f"{self._get_name()}({', '.join(repr(loss) for loss in self.losses)})"

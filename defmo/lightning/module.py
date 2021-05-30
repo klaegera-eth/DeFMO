@@ -1,4 +1,7 @@
+import torch
 import pytorch_lightning as pl
+
+from pytorch_lightning.utilities import rank_zero_only
 
 import defmo.training.modules as mod
 
@@ -22,6 +25,9 @@ class DeFMO(pl.LightningModule):
     def from_args(cls, args, **kwargs):
         return cls(args.encoder, args.renderer, args.losses, **kwargs)
 
+    def on_train_start(self):
+        self.logger.log_hyperparams(self.hparams, {"valid_loss": float("inf")})
+
     def forward(self, imgs, n_frames):
         latent = self.encoder(imgs)
         renders = self.renderer(latent, n_frames)
@@ -30,21 +36,35 @@ class DeFMO(pl.LightningModule):
     def step(self, inputs):
         n_frames = inputs["frames"].shape[1]
         outputs = self(inputs["imgs"], n_frames)
-        return self.loss(inputs, outputs).mean(0)
+        return self.loss(inputs, outputs).mean(0), outputs
 
     def training_step(self, inputs, _):
-        loss = self.step(inputs)
-        self.loss.log("train_loss", loss, self.log)
+        loss, _ = self.step(inputs)
+        self.loss.log("train_loss", loss, self.log, sync_dist=True)
         loss = loss.mean()
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
         return loss
 
-    def validation_step(self, inputs, _):
-        loss = self.step(inputs)
-        self.loss.log("valid_loss", loss, self.log)
+    def validation_step(self, inputs, batch_idx):
+        loss, outputs = self.step(inputs)
+        self.loss.log("valid_loss", loss, self.log, sync_dist=True)
         loss = loss.mean()
-        self.log("valid_loss", loss)
+        self.log("valid_loss", loss, sync_dist=True)
+
+        if batch_idx == 0:
+            self._log_gt_vs_renders(gt=inputs["frames"], renders=outputs["renders"])
+
         return loss
+
+    @rank_zero_only
+    def _log_gt_vs_renders(self, gt, renders):
+        vids = torch.cat((gt, renders), -1)[:5]
+        vids = torch.cat(tuple(iter(vids)), -2)
+        rgb, alpha = vids[:, :3], vids[:, 3:]
+        vids = alpha * rgb + (1 - alpha)
+        self.logger.experiment.add_video(
+            "gt_vs_renders", vids[None], fps=24, global_step=self.current_epoch
+        )
 
     def configure_optimizers(self):
         from torch.optim import Adam
