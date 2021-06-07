@@ -13,7 +13,10 @@ from datasets import get_dataset
 def main(args):
     callbacks = []
     if args.checkpoint:
-        cpdir, _ = os.path.split(os.path.realpath(args.checkpoint))
+        if args.checkpoint == "auto":
+            cpdir = f"checkpoints/{args.name}/{args.version}"
+        else:
+            cpdir, _ = os.path.split(os.path.realpath(args.checkpoint))
         callbacks.append(
             ContinuousModelCheckpoint(
                 dirpath=cpdir,
@@ -28,7 +31,7 @@ def main(args):
 
     logger = TensorBoardLogger(
         save_dir="logs",
-        name=args.name if args.name else "noname",
+        name=args.name,
         version=args.version,
         default_hp_metric=False,
     )
@@ -54,8 +57,8 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--checkpoint")
-    parser.add_argument("--name")
-    parser.add_argument("--version")
+    parser.add_argument("--name", default="noname")
+    parser.add_argument("--version", default="noversion")
     parser.add_argument("--description")
 
     trainer_args, _ = parser.parse_known_args()
@@ -67,6 +70,8 @@ if __name__ == "__main__":
 
     model_args_required = True
     if chkpt:
+        if chkpt == "auto":
+            chkpt = f"checkpoints/{trainer_args.name}/{trainer_args.version}/last.ckpt"
         if os.path.isfile(chkpt):
             print("Resuming checkpoint", chkpt)
             cp = torch.load(chkpt, map_location="cpu")
