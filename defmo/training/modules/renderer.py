@@ -37,6 +37,17 @@ class Renderer(nn.Module):
                 nn.Sigmoid(),
             )
 
+        def resnet_gn_tsweight(scale=1, shift=0):
+            model = resnet_gn()
+            with torch.no_grad():
+                model[0].weight[:, 0] *= scale
+                model[0].weight[:, 0] += shift
+            return model
+
+        resnet_gn_tsweight_3_0 = lambda: resnet_gn_tsweight(3, 0)
+        resnet_gn_tsweight_0_08 = lambda: resnet_gn_tsweight(0, 0.08)
+        resnet_gn_tsweight_3_08 = lambda: resnet_gn_tsweight(3, 0.08)
+
         try:
             return locals()[name](**kwargs)
         except KeyError:
