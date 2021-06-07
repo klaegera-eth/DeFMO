@@ -28,14 +28,17 @@ class DeFMO(pl.LightningModule):
     def on_train_start(self):
         self.logger.log_hyperparams(self.hparams, {"valid_loss": float("inf")})
 
-    def forward(self, imgs, n_frames):
-        latent = self.encoder(imgs)
+    def forward(self, inputs, n_frames=None):
+        if isinstance(inputs, dict):
+            if not n_frames:
+                n_frames = inputs["frames"].shape[1]
+            inputs = inputs["imgs"]
+        latent = self.encoder(inputs)
         renders = self.renderer(latent, n_frames)
         return dict(latent=latent, renders=renders)
 
     def step(self, inputs):
-        n_frames = inputs["frames"].shape[1]
-        outputs = self(inputs["imgs"], n_frames)
+        outputs = self(inputs)
         return self.loss(inputs, outputs).mean(0), outputs
 
     def training_step(self, inputs, _):
