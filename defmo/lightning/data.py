@@ -4,13 +4,14 @@ from torch.utils.data import DataLoader
 
 
 class FMOData(pl.LightningDataModule):
-    def __init__(self, train_data, valid_data):
+    def __init__(self, train_data, valid_data, num_workers=0):
         super().__init__()
         self.train_data = train_data
         self.valid_data = valid_data
+        self.num_workers = num_workers
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=4)
+        return DataLoader(self.train_data, batch_size=4, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.valid_data, batch_size=24)
+        return DataLoader(self.valid_data, batch_size=24, num_workers=self.num_workers)
