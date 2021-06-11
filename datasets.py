@@ -23,6 +23,10 @@ def get_dataset(name, num_workers=0, **kwargs):
         )
 
     try:
+        if num_workers > 1:
+            from torch.multiprocessing import set_start_method
+
+            set_start_method("spawn", force=True)
         return locals()[name](**kwargs)
     except KeyError:
         raise ValueError(f"Dataset '{name}' not found.")
