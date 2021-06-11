@@ -34,6 +34,12 @@ class Loss(nn.Module):
         def __repr__(self):
             return f"{self._get_name()}(weight={self.weight})"
 
+        def _weighted_mean(_, x, weights, dims):
+            x = (x * weights).sum(dims)
+            weights = weights.sum(dims)
+            weights = weights + (weights == 0)  # no division by 0
+            return x / weights
+
     class Supervised(_BaseLoss):
         def loss(self, inputs, outputs):
             gt = inputs["frames"]
@@ -45,23 +51,30 @@ class Loss(nn.Module):
             gt_alpha = gt[:, :, -1:]
             rend_alpha = rend[:, :, -1:]
 
+            return self.supervised(gt_rgb, rend_rgb, gt_alpha, rend_alpha).mean(1)
+
+        def supervised(self, gt_rgb, rend_rgb, gt_alpha, rend_alpha):
+            alpha_l1 = (gt_alpha - rend_alpha).abs()
+            rgb_l1 = (gt_rgb * gt_alpha - rend_rgb * rend_alpha).abs()
+
             # apply weighting only over image dims
             mask = gt_alpha > 0
             dims = (2, 3, 4)
 
-            alpha_loss_in = self._l1(gt_alpha, rend_alpha, mask, dims)
-            alpha_loss_out = self._l1(gt_alpha, rend_alpha, ~mask, dims)
-            rgb_loss = self._l1(gt_rgb * gt_alpha, rend_rgb * rend_alpha, mask, dims)
+            alpha_loss_in = self._weighted_mean(alpha_l1, mask, dims)
+            alpha_loss_out = self._weighted_mean(alpha_l1, ~mask, dims)
+            rgb_loss = self._weighted_mean(rgb_l1, mask, dims)
 
             return (alpha_loss_in + alpha_loss_out + rgb_loss) / 3
 
-        def _l1(_, a, b, weights, weight_dims):
-            error = (a - b).abs()
-            error = (error * weights).sum(weight_dims)
-            weights = weights.sum(weight_dims)
-            weights = weights + (weights == 0)  # no division by 0
-            error /= weights
-            return error.mean(1)
+    class SupervisedL2(Supervised):
+        def supervised(self, gt_rgb, rend_rgb, gt_alpha, rend_alpha):
+            alpha_l2 = (gt_alpha - rend_alpha) ** 2
+            rgb_l2 = (gt_rgb - rend_rgb) ** 2
+
+            alpha_loss = alpha_l2.mean((2, 3, 4))
+            rgb_loss = self._weighted_mean(rgb_l2, gt_alpha, (2, 3, 4))
+            return (alpha_loss + rgb_loss) / 2
 
     class TemporalConsistency(_BaseLoss):
         def __init__(self, padding=0.1, **kwargs):
