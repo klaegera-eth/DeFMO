@@ -12,7 +12,7 @@ class Loss(nn.Module):
 
     def forward(self, inputs, outputs):
         losses = [loss(inputs, outputs) for loss in self.losses]
-        return torch.stack(losses, 1)
+        return torch.stack(losses, 1) if losses else torch.Tensor()
 
     def log(self, name, loss, log_fn, **log_fn_kwargs):
         with torch.no_grad():
