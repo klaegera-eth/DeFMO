@@ -55,7 +55,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--dataset", required=True)
-    parser.add_argument("--dataset_workers", type=int, default=0)
+    parser.add_argument("--dataset_workers", type=int, default=1)
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--checkpoint")
     parser.add_argument("--name", default="noname")

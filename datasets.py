@@ -4,7 +4,7 @@ from defmo.training.data import BasicDataset, BackgroundAdder
 from defmo.utils import FmoLoader, ZipLoader
 
 
-def get_dataset(name, num_workers=0, **kwargs):
+def get_dataset(name, num_workers=1, **kwargs):
     def double_blur(train_range=(0, 0.9), valid_range=(0.9, 1)):
         return FMOData(
             train_data=BasicDataset(

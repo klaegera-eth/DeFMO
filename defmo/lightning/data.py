@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 
 class FMOData(pl.LightningDataModule):
-    def __init__(self, train_data, valid_data, num_workers=0):
+    def __init__(self, train_data, valid_data, num_workers=1):
         super().__init__()
         self.train_data = train_data
         self.valid_data = valid_data
