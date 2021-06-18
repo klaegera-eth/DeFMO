@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchmetrics.functional as metrics
 
 
 class Loss(nn.Module):
@@ -44,16 +45,16 @@ class Loss(nn.Module):
         def loss(self, inputs, outputs):
             gt = inputs["frames"]
             rend = outputs["renders"]
+            return self.supervised(gt, rend)
 
+        def _split(_, *tensors):
+            # split RGB / alpha
             # (batch, index, channel, y, x)
-            gt_rgb = gt[:, :, :3]
-            rend_rgb = rend[:, :, :3]
-            gt_alpha = gt[:, :, -1:]
-            rend_alpha = rend[:, :, -1:]
+            return [(t[:, :, :3], t[:, :, -1:]) for t in tensors]
 
-            return self.supervised(gt_rgb, rend_rgb, gt_alpha, rend_alpha).mean(1)
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
 
-        def supervised(self, gt_rgb, rend_rgb, gt_alpha, rend_alpha):
             alpha_l1 = (gt_alpha - rend_alpha).abs()
             rgb_l1 = (gt_rgb * gt_alpha - rend_rgb * rend_alpha).abs()
 
@@ -65,15 +66,37 @@ class Loss(nn.Module):
             alpha_loss_out = self._weighted_mean(alpha_l1, ~mask, dims)
             rgb_loss = self._weighted_mean(rgb_l1, mask, dims)
 
-            return (alpha_loss_in + alpha_loss_out + rgb_loss) / 3
+            return (alpha_loss_in + alpha_loss_out + rgb_loss).mean(1) / 3
 
     class SupervisedL2(Supervised):
-        def supervised(self, gt_rgb, rend_rgb, gt_alpha, rend_alpha):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
             alpha_l2 = (gt_alpha - rend_alpha) ** 2
             rgb_l2 = (gt_rgb - rend_rgb) ** 2
 
             alpha_loss = alpha_l2.mean((2, 3, 4))
             rgb_loss = self._weighted_mean(rgb_l2, gt_alpha, (2, 3, 4))
+            return (alpha_loss + rgb_loss).mean(1) / 2
+
+    class SupervisedSSIM(Supervised):
+        def supervised(self, gt, rend):
+            return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
+
+    class SupervisedL1AlphaSSIM(Supervised):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            alpha_l1 = (gt_alpha - rend_alpha).abs()
+            alpha_loss = alpha_l1.mean((1, 2, 3, 4))
+
+            rgb_loss = 1 - torch.stack(
+                [
+                    metrics.ssim(r, g)
+                    for r, g in zip(rend_rgb * rend_alpha, gt_rgb * gt_alpha)
+                ]
+            )
+
             return (alpha_loss + rgb_loss) / 2
 
     class TemporalConsistency(_BaseLoss):
