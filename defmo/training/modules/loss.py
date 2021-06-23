@@ -89,6 +89,13 @@ class Loss(nn.Module):
                 / ((r_a * r_a).sum((1, 2, 3, 4)) + (gt_a * gt_a).sum((1, 2, 3, 4)))
             )
 
+    class RGBSSIM(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            gt, rend = gt_rgb * gt_alpha, rend_rgb * rend_alpha
+            return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
+
     class SupervisedSSIM(_SupervisedBase):
         def supervised(self, gt, rend):
             return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
