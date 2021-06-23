@@ -96,26 +96,6 @@ class Loss(nn.Module):
             gt, rend = gt_rgb * gt_alpha, rend_rgb * rend_alpha
             return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
 
-    class SupervisedSSIM(_SupervisedBase):
-        def supervised(self, gt, rend):
-            return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
-
-    class SupervisedL1AlphaSSIM(_SupervisedBase):
-        def supervised(self, gt, rend):
-            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
-
-            alpha_l1 = (gt_alpha - rend_alpha).abs()
-            alpha_loss = alpha_l1.mean((1, 2, 3, 4))
-
-            rgb_loss = 1 - torch.stack(
-                [
-                    metrics.ssim(r, g)
-                    for r, g in zip(rend_rgb * rend_alpha, gt_rgb * gt_alpha)
-                ]
-            )
-
-            return (alpha_loss + rgb_loss) / 2
-
     class TemporalConsistency(_BaseLoss):
         def __init__(self, padding=0.1, **kwargs):
             super().__init__(**kwargs)
