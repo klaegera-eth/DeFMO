@@ -41,7 +41,7 @@ class Loss(nn.Module):
             weights = weights + (weights == 0)  # no division by 0
             return x / weights
 
-    class Supervised(_BaseLoss):
+    class _SupervisedBase(_BaseLoss):
         def loss(self, inputs, outputs):
             gt = inputs["frames"]
             rend = outputs["renders"]
@@ -52,6 +52,7 @@ class Loss(nn.Module):
             # (batch, index, channel, y, x)
             return [(t[:, :, :3], t[:, :, -1:]) for t in tensors]
 
+    class Supervised(_SupervisedBase):
         def supervised(self, gt, rend):
             (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
 
@@ -68,7 +69,7 @@ class Loss(nn.Module):
 
             return (alpha_loss_in + alpha_loss_out + rgb_loss).mean(1) / 3
 
-    class SupervisedL2(Supervised):
+    class SupervisedL2(_SupervisedBase):
         def supervised(self, gt, rend):
             (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
 
@@ -79,11 +80,20 @@ class Loss(nn.Module):
             rgb_loss = self._weighted_mean(rgb_l2, gt_alpha, (2, 3, 4))
             return (alpha_loss + rgb_loss).mean(1) / 2
 
-    class SupervisedSSIM(Supervised):
+    class AlphaDice(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (_, gt_a), (_, r_a) = self._split(gt, rend)
+
+            return 1 - 2 * (
+                (r_a * gt_a).sum((1, 2, 3, 4))
+                / ((r_a * r_a).sum((1, 2, 3, 4)) + (gt_a * gt_a).sum((1, 2, 3, 4)))
+            )
+
+    class SupervisedSSIM(_SupervisedBase):
         def supervised(self, gt, rend):
             return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
 
-    class SupervisedL1AlphaSSIM(Supervised):
+    class SupervisedL1AlphaSSIM(_SupervisedBase):
         def supervised(self, gt, rend):
             (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
 
