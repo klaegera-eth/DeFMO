@@ -11,7 +11,7 @@ class FMOData(pl.LightningDataModule):
         self.num_workers = num_workers
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=4, num_workers=self.num_workers)
+        return DataLoader(self.train_data, batch_size=3, num_workers=self.num_workers)
 
     def val_dataloader(self):
         return DataLoader(self.valid_data, batch_size=24, num_workers=self.num_workers)
