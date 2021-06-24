@@ -7,9 +7,26 @@ class Loss(nn.Module):
     def __init__(self, losses):
         super().__init__()
         self.losses = [
-            loss if isinstance(loss, Loss._BaseLoss) else getattr(Loss, loss)()
+            loss if isinstance(loss, Loss._BaseLoss) else self.parse(loss)
             for loss in losses
         ]
+
+    def parse(self, loss_str):
+        # example: "MyLoss:param1=1,param2=myval,param3=4.5"
+        if ":" in loss_str:
+            loss, params = loss_str.split(":")
+            loss = getattr(Loss, loss)
+            params = dict(p.split("=") for p in params.split(","))
+            for k, v in params.items():
+                try:
+                    params[k] = float(v)
+                    params[k] = int(v)
+                except:
+                    pass
+        else:
+            loss = getattr(Loss, loss_str)
+            params = {}
+        return loss(**params)
 
     def forward(self, inputs, outputs):
         losses = [loss(inputs, outputs) for loss in self.losses]
