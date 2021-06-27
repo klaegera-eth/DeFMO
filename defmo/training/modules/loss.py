@@ -106,6 +106,15 @@ class Loss(nn.Module):
                 / ((r_a * r_a).sum((1, 2, 3, 4)) + (gt_a * gt_a).sum((1, 2, 3, 4)))
             )
 
+    class AlphaJaccard(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (_, gt_a), (_, r_a) = self._split(gt, rend)
+
+            I = (r_a * gt_a).sum((1, 2, 3, 4))
+            U = (r_a ** 2 + gt_a ** 2).sum((1, 2, 3, 4))
+
+            return 1 - (I + 1) / (U - I + 1)
+
     class RGBSSIM(_SupervisedBase):
         def supervised(self, gt, rend):
             (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
