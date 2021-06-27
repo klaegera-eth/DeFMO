@@ -20,4 +20,6 @@ def mean_diff(img1, img2, mask=None):
 
 
 def to_tensor_stack(imgs):
+    if not imgs:
+        return torch.Tensor()
     return torch.stack([to_tensor(img) for img in imgs])

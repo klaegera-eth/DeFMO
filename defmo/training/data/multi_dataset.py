@@ -2,12 +2,13 @@ import random
 from torch.utils.data import Dataset
 
 from .utils import alpha_composite, to_tensor_stack
+from . import BackgroundAdder
 
 
 class MultiDataset(Dataset):
     def __init__(self, fmo_loader, background_adder, num_objects=1):
         self._fmo_loader = fmo_loader
-        self._bg_adder = background_adder
+        self._bg_adder = background_adder or BackgroundAdder.Constant()
         self.num_objects = (
             [num_objects] if isinstance(num_objects, int) else num_objects
         )

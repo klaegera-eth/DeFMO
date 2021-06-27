@@ -1,4 +1,5 @@
 import numpy as np
+from PIL import Image
 
 from .utils import alpha_composite, mean_diff
 
@@ -49,3 +50,11 @@ class BackgroundAdder:
         ]
 
         return [list(l) for l in zip(*fmo_bg_pairs)]
+
+    class Constant:
+        def __init__(self, color="white"):
+            self.bg = Image.new("RGB", (1, 1), color)
+
+        def __call__(self, inputs):
+            fmo_bg_pairs = [alpha_composite(self.bg, input) for input in inputs]
+            return [list(l) for l in zip(*fmo_bg_pairs)]

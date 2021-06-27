@@ -24,6 +24,10 @@ def get_dataset(name, num_workers=1, **kwargs):
                 ),
                 num_objects=n_obj,
             ),
+            predict_data=MultiDataset(
+                FmoLoader("data/falling.zip", dummy_frames=24),
+                background_adder=None,
+            ),
             num_workers=num_workers,
         )
 
