@@ -6,12 +6,14 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from defmo.lightning import DeFMO, ContinuousModelCheckpoint
+from defmo.lightning.callbacks import LogGTvsRenders, LogPrediction
 
 from datasets import get_dataset
 
 
 def main(args):
-    callbacks = []
+    callbacks = [LogGTvsRenders(), LogPrediction()]
+
     if args.checkpoint:
         if args.checkpoint == "auto":
             cpdir = f"checkpoints/{args.name}/{args.version}"

@@ -59,30 +59,13 @@ class DeFMO(pl.LightningModule):
                 log_name, closs, self.log, sync_dist=True, prog_bar=True
             )
 
-        return loss, outputs
+        return loss
 
     def training_step(self, inputs, _):
-        loss, _ = self.step(inputs, "train_loss")
+        return self.step(inputs, "train_loss")
 
-        return loss
-
-    def validation_step(self, inputs, batch_idx):
-        loss, outputs = self.step(inputs, "valid_loss")
-
-        if batch_idx == 0:
-            self._log_gt_vs_renders(gt=inputs["frames"], renders=outputs["renders"])
-
-        return loss
-
-    @rank_zero_only
-    def _log_gt_vs_renders(self, gt, renders):
-        vids = torch.cat((gt, renders), -1)[:5]
-        vids = torch.cat(tuple(iter(vids)), -2)
-        rgb, alpha = vids[:, :3], vids[:, 3:]
-        vids = alpha * rgb + (1 - alpha)
-        self.logger.experiment.add_video(
-            "gt_vs_renders", vids[None], fps=24, global_step=self.current_epoch
-        )
+    def validation_step(self, inputs, _):
+        return self.step(inputs, "valid_loss")
 
     def configure_optimizers(self):
         from torch.optim import Adam
