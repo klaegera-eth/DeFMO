@@ -5,14 +5,12 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from defmo.lightning import DeFMO, ContinuousModelCheckpoint
-from defmo.lightning.callbacks import LogGTvsRenders, LogPrediction
-
+import defmo.training as tr
 from datasets import get_dataset
 
 
 def main(args):
-    callbacks = [LogGTvsRenders(), LogPrediction()]
+    callbacks = [tr.callbacks.LogGTvsRenders(), tr.callbacks.LogPrediction()]
 
     if args.checkpoint:
         if args.checkpoint == "auto":
@@ -20,7 +18,7 @@ def main(args):
         else:
             cpdir, _ = os.path.split(os.path.realpath(args.checkpoint))
         callbacks.append(
-            ContinuousModelCheckpoint(
+            tr.callbacks.ContinuousModelCheckpoint(
                 dirpath=cpdir,
                 filename="best",
                 save_last=True,
@@ -28,7 +26,7 @@ def main(args):
             )
         )
 
-    model = DeFMO.from_args(args)
+    model = tr.DeFMO.from_args(args)
     data = get_dataset(args.dataset, args.dataset_workers)
 
     logger = TensorBoardLogger(
@@ -87,6 +85,6 @@ if __name__ == "__main__":
         else:
             print("Specified checkpoint does not exist, starting new session.")
 
-    DeFMO.add_model_specific_args(parser, required=model_args_required)
+    tr.DeFMO.add_model_specific_args(parser, required=model_args_required)
 
     main(parser.parse_args())

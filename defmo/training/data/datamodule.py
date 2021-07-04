@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Dataset
 
 
-class FMOData(pl.LightningDataModule):
+class DataModule(pl.LightningDataModule):
     def __init__(self, train_data, valid_data, predict_data=None, num_workers=1):
         super().__init__()
         self.train_data = train_data

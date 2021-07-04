@@ -1,2 +1,3 @@
+from . import callbacks
 from . import modules
-from .trainer import Trainer
+from .lightning import DeFMO
