@@ -1,6 +1,4 @@
-from defmo.lightning import FMOData
-
-from defmo.training.data import MultiDataset, BackgroundAdder
+from defmo.training.data import DataModule, MultiDataset, BackgroundAdder
 from defmo.utils import FmoLoader, ZipLoader
 
 
@@ -9,7 +7,7 @@ def get_dataset(name, num_workers=1, **kwargs):
         return multi_object(n_obj=1, **kwargs)
 
     def multi_object(train_range=(0, 0.9), valid_range=(0.9, 1), n_obj=[1, 2, 3]):
-        return FMOData(
+        return DataModule(
             train_data=MultiDataset(
                 FmoLoader("data/fmo_3_24_v1.zip", item_range=train_range, blurs=[1, 2]),
                 BackgroundAdder(
