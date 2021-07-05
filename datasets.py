@@ -29,6 +29,9 @@ def get_dataset(name, num_workers=1, **kwargs):
             num_workers=num_workers,
         )
 
+    def test():
+        return double_blur(train_range=(0, 9), valid_range=(9, 57))
+
     try:
         if num_workers > 1:
             from torch.multiprocessing import set_start_method
