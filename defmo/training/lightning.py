@@ -69,6 +69,3 @@ class DeFMO(pl.LightningModule):
         from torch.optim import Adam
 
         return Adam(self.parameters())
-
-    def optimizer_zero_grad(self, _, __, optimizer, ___):
-        optimizer.zero_grad(set_to_none=True)
