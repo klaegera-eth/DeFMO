@@ -97,6 +97,13 @@ class Loss(nn.Module):
             rgb_loss = self._weighted_mean(rgb_l2, gt_alpha, (2, 3, 4))
             return (alpha_loss + rgb_loss).mean(1) / 2
 
+    class RGBL2(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            gt_rgb, rend_rgb = gt_rgb * gt_alpha, rend_rgb * rend_alpha
+            return self._weighted_mean((gt_rgb - rend_rgb) ** 2, gt_alpha, (2, 3, 4))
+
     class AlphaDice(_SupervisedBase):
         def supervised(self, gt, rend):
             (_, gt_a), (_, r_a) = self._split(gt, rend)
