@@ -26,6 +26,7 @@ class DeFMOArgParser(ArgumentParser):
         self.add_argument("--name", default="noname")
         self.add_argument("--version", default="noversion")
         self.add_argument("--description")
+        self.add_argument("--seed")
 
     def load_checkpoint_defaults(self, args):
         if os.path.isfile(args.checkpoint):

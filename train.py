@@ -6,6 +6,8 @@ from datasets import get_dataset
 
 
 def main(args):
+    pl.seed_everything(args.seed, workers=True)
+
     trainer = pl.Trainer.from_argparse_args(
         args,
         callbacks=[
