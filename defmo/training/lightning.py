@@ -12,6 +12,7 @@ class DeFMO(pl.LightningModule):
         self.renderer = mod.Renderer(renderer)
         self.loss = mod.Loss(losses)
         self.comparison_loss = mod.Loss(comparison_losses)
+        self.gradnorm = mod.GradNorm(self.renderer.model[-2].parameters(), len(losses))
 
     @classmethod
     def add_model_specific_args(cls, parser, required=True):
@@ -48,6 +49,9 @@ class DeFMO(pl.LightningModule):
         loss = self.loss(inputs, outputs).mean(0)
 
         self.loss.log(log_name, loss, self.log, sync_dist=True)
+
+        loss = self.gradnorm(loss)
+
         loss = loss.mean()
         self.log(log_name, loss, sync_dist=True)
 
