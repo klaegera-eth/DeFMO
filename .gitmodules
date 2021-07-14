@@ -1,0 +1,3 @@
+[submodule "benchmark"]
+	path = benchmark_module
+	url = https://github.com/rozumden/fmo-deblurring-benchmark.git
