@@ -39,6 +39,8 @@ class DeFMO(pl.LightningModule):
             if not n_frames:
                 n_frames = inputs["frames"].shape[1]
             inputs = inputs["imgs"]
+        if not n_frames:
+            raise ValueError("n_frames not specified")
         latent = self.encoder(inputs)
         renders = self.renderer(latent, n_frames)
         return dict(latent=latent, renders=renders)
