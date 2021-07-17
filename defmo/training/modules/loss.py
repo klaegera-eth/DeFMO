@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchmetrics.functional as metrics
 
 
@@ -117,6 +118,13 @@ class Loss(nn.Module):
 
             alpha_l2 = (gt_a - r_a) ** 2
             return alpha_l2.mean((1, 2, 3, 4))
+
+    class AlphaEntropy(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (_, gt_a), (_, r_a) = self._split(gt, rend)
+
+            alpha_bce = F.binary_cross_entropy(r_a, gt_a.round(), reduction="none")
+            return alpha_bce.mean((1, 2, 3, 4))
 
     class AlphaDice(_SupervisedBase):
         def supervised(self, gt, rend):
