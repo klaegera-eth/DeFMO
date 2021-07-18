@@ -28,7 +28,7 @@ def main(args):
 
     trainer.fit(
         model=tr.DeFMO.from_args(args),
-        datamodule=get_dataset(args.dataset, args.dataset_workers),
+        datamodule=get_dataset(args.dataset, num_workers=args.dataset_workers),
     )
 
 
