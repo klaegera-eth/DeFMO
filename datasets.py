@@ -4,19 +4,19 @@ from defmo.utils import FmoLoader, ZipLoader
 
 def get_dataset(name, **kwargs):
     def double_blur(**kwargs):
-        return _dataset(**dict(blurs=[1, 2]) | kwargs)
+        return _dataset(**{"blurs": [1, 2], **kwargs})
 
     def multi_object(**kwargs):
-        return double_blur(**dict(num_objects=[1, 2, 3]) | kwargs)
+        return double_blur(**{"num_objects": [1, 2, 3], **kwargs})
 
     def test(**kwargs):
-        return double_blur(**dict(train_range=(0, 9), valid_range=(9, 57)) | kwargs)
+        return double_blur(**{"train_range": (0, 9), "valid_range": (9, 57), **kwargs})
 
     def single_blur(**kwargs):
-        return _dataset(**dict(blurs=[0]) | kwargs)
+        return _dataset(**{"blurs": [0], **kwargs})
 
     def test_single(**kwargs):
-        return single_blur(**dict(train_range=(0, 9), valid_range=(9, 57)) | kwargs)
+        return single_blur(**{"train_range": (0, 9), "valid_range": (9, 57), **kwargs})
 
     try:
         if kwargs.get("num_workers", 1) > 1:
