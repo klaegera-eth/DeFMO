@@ -147,6 +147,13 @@ class Loss(nn.Module):
             alpha_l2 = (gt_a - r_a) ** 2
             return alpha_l2.mean((1, 2, 3, 4))
 
+    class AlphaL1(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (_, gt_a), (_, r_a) = self._split(gt, rend)
+
+            alpha_l1 = (gt_a - r_a).abs()
+            return alpha_l1.mean((1, 2, 3, 4))
+
     class AlphaEntropy(_SupervisedBase):
         def supervised(self, gt, rend):
             (_, gt_a), (_, r_a) = self._split(gt, rend)
