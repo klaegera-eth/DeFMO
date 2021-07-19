@@ -15,8 +15,6 @@ class Renderer(nn.Module):
         ts = torch.linspace(0, 1, n_frames, device=latent.device)
         inputs = [torch.cat((t.repeat(b, 1, w, h), latent), 1) for t in ts]
         renders = torch.stack([self.model(i) for i in inputs], 1)
-        if not self.training:
-            renders[:, :, 3].round_()
         return renders
 
     def models(_, name, **kwargs):
