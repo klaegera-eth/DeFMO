@@ -31,7 +31,7 @@ shape = 320, 240
 def method(I, B, bbox, n_frames, radius, _):
 
     # crop input
-    bbox = lh.extend_bbox(bbox, 4 * radius, shape[1] / shape[0], I.shape)
+    bbox = lh.extend_bbox(bbox.copy(), 4 * radius, shape[1] / shape[0], I.shape)
     I_crop = lh.crop_resize(I, bbox, shape)
     B_crop = lh.crop_resize(B, bbox, shape)
 
