@@ -1,13 +1,10 @@
 import argparse
-import sys
 import torch
 import numpy as np
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-sys.path.append("benchmark_module")
-
-from benchmark.benchmark_loader import evaluate_on
-import benchmark.loaders_helpers as lh
+from defmo.benchmark.benchmark.benchmark_loader import evaluate_on
+import defmo.benchmark.benchmark.loaders_helpers as lh
 
 from defmo.training import DeFMO
 
