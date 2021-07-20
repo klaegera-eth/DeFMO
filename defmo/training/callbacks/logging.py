@@ -9,7 +9,7 @@ def _log_video_batch(trainer, name, video_batch, fps=24):
     rgb, alpha = vids[:, :3], vids[:, 3:]
     vids = alpha * rgb + (1 - alpha)
     trainer.logger.experiment.add_video(
-        name, vids[None], fps=fps, global_step=trainer.current_epoch
+        name, vids[None], fps=fps, global_step=trainer.global_step
     )
 
 
