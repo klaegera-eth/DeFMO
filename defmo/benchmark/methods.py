@@ -49,6 +49,12 @@ def get_method(name, model, shape=(320, 240), sub_steps=5):
 
         return rev_crop(helpers.rgba2hs(renders, crop(bg))), None
 
+    def dummy_img(img, bg, bbox, n_frames, *_):
+        return np.repeat(img[:, :, :, None], n_frames, 3), None
+
+    def dummy_bg(img, bg, bbox, n_frames, *_):
+        return np.repeat(bg[:, :, :, None], n_frames, 3), None
+
     try:
         return locals()[name]
     except KeyError:
