@@ -212,6 +212,20 @@ class Loss(nn.Module):
                 [metrics.psnr(r, g, data_range=1) for r, g in zip(rend, gt)]
             )
 
+    class L1(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            l1 = (gt_rgb * gt_alpha - rend_rgb * rend_alpha).abs()
+            return l1.view(len(l1), -1).mean(1)
+
+    class L2(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            l2 = (gt_rgb * gt_alpha - rend_rgb * rend_alpha) ** 2
+            return l2.view(len(l2), -1).mean(1)
+
     class RGBSSIMGT(_SupervisedBase):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
