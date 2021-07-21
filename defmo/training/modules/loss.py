@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchmetrics.functional as metrics
 
+import pytorch_msssim as ssim
+
 
 class Loss(nn.Module):
     def __init__(self, losses):
@@ -179,12 +181,58 @@ class Loss(nn.Module):
 
             return 1 - (I + 1) / (U - I + 1)
 
-    class RGBSSIM(_SupervisedBase):
+    class SSIM(_SupervisedBase):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.ssim = ssim.SSIM(data_range=1)
+
         def supervised(self, gt, rend):
             (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
 
             gt, rend = gt_rgb * gt_alpha, rend_rgb * rend_alpha
-            return 1 - torch.stack([metrics.ssim(r, g) for r, g in zip(rend, gt)])
+            return 1 - torch.stack([self.ssim(r, g) for r, g in zip(rend, gt)])
+
+    class MSSSIM(_SupervisedBase):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.ms_ssim = ssim.MS_SSIM(data_range=1)
+
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            gt, rend = gt_rgb * gt_alpha, rend_rgb * rend_alpha
+            return 1 - torch.stack([self.ms_ssim(r, g) for r, g in zip(rend, gt)])
+
+    class PSNR(_SupervisedBase):
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, rend_alpha) = self._split(gt, rend)
+
+            gt, rend = gt_rgb * gt_alpha, rend_rgb * rend_alpha
+            return -torch.stack(
+                [metrics.psnr(r, g, data_range=1) for r, g in zip(rend, gt)]
+            )
+
+    class RGBSSIMGT(_SupervisedBase):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.ssim = ssim.SSIM(data_range=1)
+
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, _) = self._split(gt, rend)
+
+            gt, rend = gt_rgb * gt_alpha, rend_rgb * gt_alpha
+            return 1 - torch.stack([self.ssim(r, g) for r, g in zip(rend, gt)])
+
+    class RGBMSSSIMGT(_SupervisedBase):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.ms_ssim = ssim.MS_SSIM(data_range=1)
+
+        def supervised(self, gt, rend):
+            (gt_rgb, gt_alpha), (rend_rgb, _) = self._split(gt, rend)
+
+            gt, rend = gt_rgb * gt_alpha, rend_rgb * gt_alpha
+            return 1 - torch.stack([self.ms_ssim(r, g) for r, g in zip(rend, gt)])
 
     class TemporalConsistency(_BaseLoss):
         def __init__(self, padding=0.1, **kwargs):
