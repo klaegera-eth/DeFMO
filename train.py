@@ -4,6 +4,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 import defmo.training as tr
 from datasets import get_dataset
 
+from defmo.benchmark import get_falling_dataset
+
 
 def main(args):
     pl.seed_everything(args.seed, workers=True)
@@ -12,7 +14,10 @@ def main(args):
         args,
         callbacks=[
             tr.callbacks.LogGTvsRenders(),
-            tr.callbacks.LogPrediction(),
+            # tr.callbacks.LogPrediction(),
+            tr.callbacks.LogBenchmark(
+                get_falling_dataset("data/benchmark/falling_objects"), "double_blur"
+            ),
             tr.callbacks.ContinuousModelCheckpoint(args.checkpoint, "valid_loss"),
         ],
         logger=TensorBoardLogger(
