@@ -3,6 +3,9 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 
 import torch
 
+from types import SimpleNamespace
+from defmo.benchmark import benchmark
+
 
 def _log_video_batch(trainer, name, video_batch, fps=24):
     vids = torch.cat(tuple(iter(video_batch)), -2)
@@ -39,3 +42,28 @@ class LogPrediction(Callback):
             data = next(_load_on_device(dl[0], module.device))
             renders = module(data)["renders"]
             _log_video_batch(trainer, "predictions", renders)
+
+
+class LogBenchmark(Callback):
+    def __init__(self, dataset, method, method_kwargs={}):
+        self.dataset = dataset
+        self.method = method
+        self.method_kwargs = method_kwargs
+        self.args = SimpleNamespace(
+            verbose=True,
+            save_visualization=False,
+            visualization_path="",
+            add_traj=False,
+            method_name="benchmark_callback",
+        )
+
+    @rank_zero_only
+    def on_validation_epoch_end(self, _, module):
+        _, psnr, ssim = benchmark(
+            module,
+            self.dataset,
+            self.method,
+            self.args,
+            self.method_kwargs,
+        )
+        module.log("benchmark", {"PSNR": psnr, "SSIM": ssim})
