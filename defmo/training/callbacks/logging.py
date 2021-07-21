@@ -66,4 +66,5 @@ class LogBenchmark(Callback):
             self.args,
             self.method_kwargs,
         )
-        module.log("benchmark", {"PSNR": psnr, "SSIM": ssim})
+        module.log("benchmark/PSNR", psnr)
+        module.log("benchmark/SSIM", ssim)
