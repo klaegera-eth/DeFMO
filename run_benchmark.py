@@ -1,6 +1,6 @@
 import argparse
 
-from defmo.benchmark import get_method, evaluate_on, helpers
+from defmo.benchmark import benchmark, get_falling_dataset
 from defmo.training import DeFMO
 
 
@@ -15,14 +15,9 @@ parser.add_argument("--method_name", required=False, default="checkpoint")
 args = parser.parse_args()
 
 
-method = get_method(
-    "double_blur",
+benchmark(
     DeFMO.load_from_checkpoint(args.checkpoint).to(args.device),
-)
-
-evaluate_on(
-    helpers.get_falling_dataset("data/benchmark/falling_objects"),
-    method,
+    get_falling_dataset("data/benchmark/falling_objects"),
+    "double_blur",
     args,
-    callback=lambda *args: hasattr(method, "callback") and method.callback(*args),
 )

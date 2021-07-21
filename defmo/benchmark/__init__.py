@@ -1,4 +1,7 @@
-from .methods import get_method
+from .methods import benchmark
 
-from .submodule.benchmark import loaders_helpers as helpers
-from .submodule.benchmark.benchmark_loader import evaluate_on
+from .submodule.benchmark.loaders_helpers import (
+    get_falling_dataset,
+    get_tbd_dataset,
+    get_tbd3d_dataset,
+)

@@ -3,6 +3,13 @@ import numpy as np
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
 from .submodule.benchmark import loaders_helpers as helpers
+from .submodule.benchmark.benchmark_loader import evaluate_on
+
+
+def benchmark(model, data, method, args, method_kwargs={}):
+    method = get_method(method, model, **method_kwargs)
+    callback = lambda *args: hasattr(method, "callback") and method.callback(*args)
+    return evaluate_on(data, method, args, callback)
 
 
 def get_method(name, model, shape=(320, 240), sub_steps=5):
