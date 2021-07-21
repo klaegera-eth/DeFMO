@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from torchvision.transforms.functional import to_tensor
+from torchvision.transforms.functional import to_tensor, to_pil_image
 
 from .submodule.benchmark import loaders_helpers as helpers
 
@@ -59,3 +59,12 @@ def get_method(name, model, shape=(320, 240), sub_steps=5):
         return locals()[name]
     except KeyError:
         raise ValueError(f"Benchmark method '{name}' not found.")
+
+
+def show(*imgs):
+    for img in imgs:
+        if not isinstance(img, torch.Tensor):
+            img = to_tensor(img)
+        to_pil_image(img).show()
+    print("showing, enter to continue")
+    input()
